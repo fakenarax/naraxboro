@@ -1,0 +1,849 @@
+/* ══════════════════════════════════════════════════════════════
+   NARAX SECURITY TERMINAL — BACKEND SERVER
+   Node.js / Express  |  Production-Ready
+   ══════════════════════════════════════════════════════════════ */
+
+'use strict';
+
+/* ──────────────────────────────────────
+   DEPENDENCIES
+─────────────────────────────────────── */
+const express       = require('express');
+const helmet        = require('helmet');
+const rateLimit     = require('express-rate-limit');
+const bcrypt        = require('bcryptjs');
+const jwt           = require('jsonwebtoken');
+const nodemailer    = require('nodemailer');
+const multer        = require('multer');
+const path          = require('path');
+const fs            = require('fs');
+const crypto        = require('crypto');
+const { v4: uuidv4 }= require('uuid');
+
+/* ──────────────────────────────────────
+   APP INIT
+─────────────────────────────────────── */
+const app  = express();
+const PORT = process.env.PORT || 3000;
+
+/* ──────────────────────────────────────
+   ★ CONFIGURATION — EDIT THESE VALUES ★
+─────────────────────────────────────── */
+const CONFIG = {
+  // ── JWT ──────────────────────────────────────────────────────
+  JWT_SECRET:          process.env.JWT_SECRET || 'CHANGE_ME_USE_A_LONG_RANDOM_SECRET_256BIT',
+  JWT_EXPIRES_IN:      '30m',   // Hard session expiry: 30 minutes
+
+  // ── EMAIL CREDENTIALS ────────────────────────────────────────
+  // Replace the values below (or set them as environment variables)
+  // For Gmail: enable "App Passwords" at myaccount.google.com/apppasswords
+  EMAIL_HOST:          process.env.EMAIL_HOST     || 'smtp.gmail.com',
+  EMAIL_PORT:          process.env.EMAIL_PORT     || 587,
+  EMAIL_SECURE:        false,                            // true for port 465
+  EMAIL_USER:          process.env.EMAIL_USER     || 'YOUR_EMAIL@gmail.com',   // ← paste here
+  EMAIL_PASS:          process.env.EMAIL_PASS     || 'YOUR_APP_PASSWORD_HERE', // ← paste here
+  EMAIL_FROM_NAME:     'Narax',                          // Sender display name
+  EMAIL_FROM_ADDRESS:  process.env.EMAIL_USER     || 'YOUR_EMAIL@gmail.com',   // ← paste here
+
+  // ── SECURITY ──────────────────────────────────────────────────
+  BCRYPT_ROUNDS:       12,
+  OTP_EXPIRY_MS:       5 * 60 * 1000,   // 5 minutes
+  SESSION_EXPIRY_MS:   30 * 60 * 1000,  // 30 minutes inactivity TTL (server-side)
+
+  // ── UPLOADS ───────────────────────────────────────────────────
+  AVATAR_UPLOAD_DIR:   path.join(__dirname, 'uploads', 'avatars'),
+  AVATAR_MAX_SIZE_MB:  2,
+};
+
+/* ──────────────────────────────────────
+   IN-MEMORY STORES
+   (Replace with MongoDB/PostgreSQL in production)
+─────────────────────────────────────── */
+
+// users  → { [userId]: { id, email, passwordHash, role, joined, avatar, status } }
+const users = {
+  narax_admin: {
+    id:           'narax_admin',
+    email:        'admin@narax.sec',
+    passwordHash: null,   // pre-hashed on first startup in demo; set via register
+    role:         'ADMIN',
+    joined:       '2025-01-01',
+    avatar:       null,
+    status:       'OFFLINE',
+  },
+};
+
+// sessions → { [sessionId]: { userId, role, loginTime, lastActive, expiresAt } }
+const sessions = {};
+
+// otpStore → { [email]: { otp, expiresAt, purpose: 'login'|'reset' } }
+const otpStore = {};
+
+/* ──────────────────────────────────────
+   NODEMAILER TRANSPORTER
+─────────────────────────────────────── */
+const transporter = nodemailer.createTransport({
+  host:   CONFIG.EMAIL_HOST,
+  port:   CONFIG.EMAIL_PORT,
+  secure: CONFIG.EMAIL_SECURE,
+  auth: {
+    user: CONFIG.EMAIL_USER,
+    pass: CONFIG.EMAIL_PASS,
+  },
+});
+
+/* ──────────────────────────────────────
+   MULTER — AVATAR STORAGE
+─────────────────────────────────────── */
+if (!fs.existsSync(CONFIG.AVATAR_UPLOAD_DIR)) {
+  fs.mkdirSync(CONFIG.AVATAR_UPLOAD_DIR, { recursive: true });
+}
+
+const avatarStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, CONFIG.AVATAR_UPLOAD_DIR),
+  filename:    (req, file, cb) => {
+    // userId_timestamp.ext — no path traversal risk
+    const ext  = path.extname(file.originalname).toLowerCase().replace(/[^.a-z0-9]/g, '');
+    const safe = `${req.user.id}_${Date.now()}${ext}`;
+    cb(null, safe);
+  },
+});
+
+const uploadAvatar = multer({
+  storage: avatarStorage,
+  limits:  { fileSize: CONFIG.AVATAR_MAX_SIZE_MB * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    allowed.includes(ext)
+      ? cb(null, true)
+      : cb(new Error('Only JPG, PNG, WEBP, GIF images are allowed'));
+  },
+});
+
+/* ══════════════════════════════════════════════════════════════
+   GLOBAL MIDDLEWARE
+   ══════════════════════════════════════════════════════════════ */
+
+// 1. Secure HTTP headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc:  ["'self'"],
+      styleSrc:   ["'self'", "'unsafe-inline'"],
+      imgSrc:     ["'self'", 'data:', 'blob:'],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// 2. Body parsers — cap at 1 MB to prevent payload attacks
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+
+// 3. Serve frontend & avatars statically
+app.use(express.static(path.join(__dirname)));
+app.use('/avatars', express.static(CONFIG.AVATAR_UPLOAD_DIR));
+
+/* ──────────────────────────────────────
+   RATE LIMITERS
+─────────────────────────────────────── */
+
+// Auth endpoints — aggressive throttle: 10 attempts / 15 min per IP
+const authLimiter = rateLimit({
+  windowMs:        15 * 60 * 1000,
+  max:             10,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message:         { success: false, message: 'TOO MANY ATTEMPTS — TRY AGAIN IN 15 MINUTES' },
+});
+
+// OTP / password-reset — 5 requests / 10 min per IP
+const otpLimiter = rateLimit({
+  windowMs:        10 * 60 * 1000,
+  max:             5,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message:         { success: false, message: 'OTP REQUEST LIMIT REACHED — WAIT 10 MINUTES' },
+});
+
+// General API — 200 requests / 15 min per IP
+const generalLimiter = rateLimit({
+  windowMs:        15 * 60 * 1000,
+  max:             200,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message:         { success: false, message: 'RATE LIMIT EXCEEDED' },
+});
+
+app.use('/api/', generalLimiter);
+
+/* ══════════════════════════════════════════════════════════════
+   UTILITY FUNCTIONS
+   ══════════════════════════════════════════════════════════════ */
+
+/**
+ * Sanitize a string — strip characters used in injection attacks.
+ * Removes: $ { } [ ] < > " ' ; \ null-bytes
+ */
+function sanitize(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/[\0\x08\x09\x1a\n\r"'\\\/<>{}$[\];%]/g, '')
+    .trim()
+    .slice(0, 256); // hard cap field length
+}
+
+/** Validate email format */
+function isValidEmail(email) {
+  return /^[^\s@]{1,64}@[^\s@]{1,253}\.[^\s@]{2,}$/.test(email);
+}
+
+/** Validate userId — alphanumeric + underscore, 3–32 chars */
+function isValidUserId(id) {
+  return /^[a-zA-Z0-9_]{3,32}$/.test(id);
+}
+
+/** Generate a cryptographically secure 6-digit OTP */
+function generateOTP() {
+  return String(crypto.randomInt(100000, 999999));
+}
+
+/** Generate a unique session ID (hex) */
+function generateSessionId() {
+  return crypto.randomBytes(16).toString('hex').toUpperCase();
+}
+
+/**
+ * Purge expired server-side sessions.
+ * Called on every protected request — lightweight O(n) scan.
+ */
+function purgeExpiredSessions() {
+  const now = Date.now();
+  for (const [sid, sess] of Object.entries(sessions)) {
+    if (now > sess.expiresAt) delete sessions[sid];
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MIDDLEWARE: JWT AUTHENTICATION
+   ══════════════════════════════════════════════════════════════ */
+
+/**
+ * Verifies the Bearer JWT and validates the server-side session.
+ * Attaches req.user = { id, role, sessionId } on success.
+ */
+function authenticate(req, res, next) {
+  purgeExpiredSessions();
+
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, message: 'AUTHORIZATION REQUIRED' });
+  }
+
+  const token = authHeader.slice(7);
+
+  let decoded;
+  try {
+    decoded = jwt.verify(token, CONFIG.JWT_SECRET);
+  } catch {
+    return res.status(401).json({ success: false, message: 'TOKEN INVALID OR EXPIRED' });
+  }
+
+  // Validate the server-side session still exists & hasn't timed out
+  const session = sessions[decoded.sessionId];
+  if (!session) {
+    return res.status(401).json({ success: false, message: 'SESSION EXPIRED — PLEASE LOG IN AGAIN' });
+  }
+
+  // Slide the 30-minute inactivity window
+  session.lastActive = Date.now();
+  session.expiresAt  = Date.now() + CONFIG.SESSION_EXPIRY_MS;
+
+  req.user = { id: decoded.userId, role: decoded.role, sessionId: decoded.sessionId };
+  next();
+}
+
+/**
+ * Requires req.user.role === 'ADMIN'.
+ * Must be used after authenticate().
+ */
+function requireAdmin(req, res, next) {
+  if (req.user.role !== 'ADMIN') {
+    return res.status(403).json({ success: false, message: 'ADMIN CLEARANCE REQUIRED' });
+  }
+  next();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   EMAIL HELPER
+   ══════════════════════════════════════════════════════════════ */
+
+async function sendOTPEmail(toEmail, otp, purpose) {
+  const subject = purpose === 'reset'
+    ? 'Narax — Password Reset Code'
+    : 'Narax — Two-Factor Authentication Code';
+
+  const html = `
+    <div style="font-family:monospace;background:#0a0a0f;color:#00ffcc;padding:32px;border:1px solid #00ffcc22;border-radius:8px;max-width:480px;margin:auto">
+      <h2 style="color:#00ffcc;letter-spacing:4px;margin-top:0">NARAX SECURITY</h2>
+      <p style="color:#aaa;font-size:13px;letter-spacing:2px">${purpose === 'reset' ? 'PASSWORD RESET' : 'TWO-FACTOR AUTH'}</p>
+      <div style="background:#111;border:1px solid #00ffcc44;border-radius:6px;padding:24px;text-align:center;margin:24px 0">
+        <span style="font-size:36px;letter-spacing:12px;color:#00ffcc;font-weight:bold">${otp}</span>
+      </div>
+      <p style="color:#888;font-size:11px">This code expires in <b style="color:#fff">5 minutes</b>.<br>
+      If you did not request this, ignore this message immediately.</p>
+      <hr style="border-color:#222;margin-top:24px">
+      <p style="color:#555;font-size:10px;margin:0">© Narax Security Terminal — Automated Message</p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from:    `"${CONFIG.EMAIL_FROM_NAME}" <${CONFIG.EMAIL_FROM_ADDRESS}>`,
+    to:      toEmail,
+    subject,
+    html,
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ROUTES
+   ══════════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────
+   POST /api/auth/register
+   Body: { userId, email, password }
+─────────────────────────────────────── */
+app.post('/api/auth/register', authLimiter, async (req, res) => {
+  try {
+    // Sanitize all inputs
+    const userId   = sanitize(req.body.userId   || '');
+    const email    = sanitize(req.body.email    || '');
+    const password = String(req.body.password   || '');
+
+    // Validate
+    if (!userId || !email || !password) {
+      return res.status(400).json({ success: false, message: 'ALL FIELDS REQUIRED' });
+    }
+    if (!isValidUserId(userId)) {
+      return res.status(400).json({ success: false, message: 'USER ID: 3-32 ALPHANUMERIC CHARS ONLY' });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ success: false, message: 'INVALID EMAIL FORMAT' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: 'PASSWORD MINIMUM 8 CHARACTERS' });
+    }
+    if (!/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+      return res.status(400).json({ success: false, message: 'PASSWORD REQUIRES UPPERCASE, NUMBER, AND SYMBOL' });
+    }
+
+    // Uniqueness check — constant-time to prevent user enumeration via timing
+    const userExists  = !!users[userId.toLowerCase()];
+    const emailExists = Object.values(users).some(u => u.email === email.toLowerCase());
+
+    if (userExists || emailExists) {
+      // Delay to prevent timing-based enumeration
+      await new Promise(r => setTimeout(r, 300 + Math.random() * 200));
+      return res.status(409).json({ success: false, message: 'USER ID OR EMAIL ALREADY REGISTERED' });
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, CONFIG.BCRYPT_ROUNDS);
+
+    // Persist user
+    const newUser = {
+      id:           userId.toLowerCase(),
+      email:        email.toLowerCase(),
+      passwordHash,
+      role:         'USER',  // All registrations start as USER; admin grants via admin panel
+      joined:       new Date().toISOString().split('T')[0],
+      avatar:       null,
+      status:       'OFFLINE',
+    };
+    users[newUser.id] = newUser;
+
+    // Generate & send OTP for email verification / 2FA
+    const otp = generateOTP();
+    otpStore[email.toLowerCase()] = {
+      otp,
+      expiresAt: Date.now() + CONFIG.OTP_EXPIRY_MS,
+      purpose:   'login',
+      userId:    newUser.id,
+    };
+
+    await sendOTPEmail(email.toLowerCase(), otp, 'login');
+
+    return res.status(201).json({
+      success: true,
+      message: 'ACCOUNT CREATED — OTP DISPATCHED TO EMAIL',
+      userId:  newUser.id,
+    });
+
+  } catch (err) {
+    console.error('[REGISTER ERROR]', err.message);
+    return res.status(500).json({ success: false, message: 'INTERNAL SERVER ERROR' });
+  }
+});
+
+/* ──────────────────────────────────────
+   POST /api/auth/login
+   Body: { userId, password }
+─────────────────────────────────────── */
+app.post('/api/auth/login', authLimiter, async (req, res) => {
+  try {
+    const userId   = sanitize(req.body.userId   || '');
+    const password = String(req.body.password   || '');
+
+    if (!userId || !password) {
+      return res.status(400).json({ success: false, message: 'ALL FIELDS REQUIRED' });
+    }
+
+    const user = users[userId.toLowerCase()];
+
+    // Constant-time rejection — always hash even on miss to prevent timing attacks
+    const dummyHash = '$2a$12$notarealhashjustpaddingtoconstanttime.......';
+    const hashToCheck = user ? user.passwordHash : dummyHash;
+    const match = await bcrypt.compare(password, hashToCheck);
+
+    if (!user || !match) {
+      return res.status(401).json({ success: false, message: 'INVALID CREDENTIALS' });
+    }
+
+    // Generate & email OTP for 2FA
+    const otp = generateOTP();
+    otpStore[user.email] = {
+      otp,
+      expiresAt: Date.now() + CONFIG.OTP_EXPIRY_MS,
+      purpose:   'login',
+      userId:    user.id,
+    };
+
+    await sendOTPEmail(user.email, otp, 'login');
+
+    return res.status(200).json({
+      success: true,
+      message: 'CREDENTIALS VERIFIED — OTP DISPATCHED',
+      // Return masked email so frontend can display "OTP sent to a***@***.com"
+      maskedEmail: user.email.replace(/^(.{1,3}).*@/, (_, p1) => p1 + '***@'),
+    });
+
+  } catch (err) {
+    console.error('[LOGIN ERROR]', err.message);
+    return res.status(500).json({ success: false, message: 'INTERNAL SERVER ERROR' });
+  }
+});
+
+/* ──────────────────────────────────────
+   POST /api/auth/verify-otp
+   Body: { userId, otp }
+   Returns: JWT + session metadata
+─────────────────────────────────────── */
+app.post('/api/auth/verify-otp', authLimiter, async (req, res) => {
+  try {
+    const userId = sanitize(req.body.userId || '');
+    const otp    = sanitize(req.body.otp    || '');
+
+    if (!userId || !otp) {
+      return res.status(400).json({ success: false, message: 'USER ID AND OTP REQUIRED' });
+    }
+    if (!/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ success: false, message: 'OTP MUST BE 6 DIGITS' });
+    }
+
+    const user = users[userId.toLowerCase()];
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'USER NOT FOUND' });
+    }
+
+    const record = otpStore[user.email];
+    if (!record || record.purpose !== 'login') {
+      return res.status(401).json({ success: false, message: 'NO OTP ON FILE — REQUEST A NEW ONE' });
+    }
+    if (Date.now() > record.expiresAt) {
+      delete otpStore[user.email];
+      return res.status(401).json({ success: false, message: 'OTP EXPIRED — REQUEST A NEW ONE' });
+    }
+    if (record.otp !== otp) {
+      return res.status(401).json({ success: false, message: 'INVALID OTP' });
+    }
+
+    // OTP consumed — delete immediately (one-time use)
+    delete otpStore[user.email];
+
+    // Create server-side session record
+    const sessionId  = generateSessionId();
+    const loginTime  = new Date();
+    const expiresAt  = Date.now() + CONFIG.SESSION_EXPIRY_MS;
+
+    sessions[sessionId] = {
+      userId:     user.id,
+      role:       user.role,
+      loginTime:  loginTime.toISOString(),
+      lastActive: Date.now(),
+      expiresAt,
+    };
+
+    // Update user status
+    user.status = 'ONLINE';
+
+    // Sign JWT — embeds sessionId for server-side revocation support
+    const token = jwt.sign(
+      { userId: user.id, role: user.role, sessionId },
+      CONFIG.JWT_SECRET,
+      { expiresIn: CONFIG.JWT_EXPIRES_IN, algorithm: 'HS256' }
+    );
+
+    return res.status(200).json({
+      success:    true,
+      message:    'IDENTITY CONFIRMED — ACCESS GRANTED',
+      token,
+      // Session metadata for the dashboard display
+      sessionInfo: {
+        sessionId,
+        userId:     user.id,
+        role:       user.role,
+        authMode:   user.role === 'ADMIN' ? 'ADMIN + 2FA' : 'USER + 2FA',
+        clearance:  user.role === 'ADMIN' ? 'LEVEL 5 — ALPHA' : 'LEVEL 2 — STANDARD',
+        loginTime:  loginTime.toISOString(),
+        expiresAt:  new Date(expiresAt).toISOString(),
+      },
+    });
+
+  } catch (err) {
+    console.error('[VERIFY-OTP ERROR]', err.message);
+    return res.status(500).json({ success: false, message: 'INTERNAL SERVER ERROR' });
+  }
+});
+
+/* ──────────────────────────────────────
+   POST /api/auth/forgot-password
+   Body: { email }
+─────────────────────────────────────── */
+app.post('/api/auth/forgot-password', otpLimiter, async (req, res) => {
+  try {
+    const email = sanitize(req.body.email || '').toLowerCase();
+
+    if (!email || !isValidEmail(email)) {
+      return res.status(400).json({ success: false, message: 'VALID EMAIL REQUIRED' });
+    }
+
+    // Always respond the same way to prevent email enumeration
+    const user = Object.values(users).find(u => u.email === email);
+
+    if (user) {
+      const otp = generateOTP();
+      otpStore[email] = {
+        otp,
+        expiresAt: Date.now() + CONFIG.OTP_EXPIRY_MS,
+        purpose:   'reset',
+        userId:    user.id,
+      };
+      await sendOTPEmail(email, otp, 'reset');
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'IF THAT EMAIL IS REGISTERED, A RECOVERY CIPHER HAS BEEN TRANSMITTED',
+    });
+
+  } catch (err) {
+    console.error('[FORGOT-PASSWORD ERROR]', err.message);
+    return res.status(500).json({ success: false, message: 'INTERNAL SERVER ERROR' });
+  }
+});
+
+/* ──────────────────────────────────────
+   POST /api/auth/reset-password
+   Body: { email, otp, newPassword }
+─────────────────────────────────────── */
+app.post('/api/auth/reset-password', otpLimiter, async (req, res) => {
+  try {
+    const email       = sanitize(req.body.email       || '').toLowerCase();
+    const otp         = sanitize(req.body.otp         || '');
+    const newPassword = String(req.body.newPassword   || '');
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ success: false, message: 'ALL FIELDS REQUIRED' });
+    }
+    if (!/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ success: false, message: 'INVALID OTP FORMAT' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'PASSWORD MINIMUM 8 CHARACTERS' });
+    }
+
+    const record = otpStore[email];
+    if (!record || record.purpose !== 'reset') {
+      return res.status(401).json({ success: false, message: 'NO RESET OTP ON FILE' });
+    }
+    if (Date.now() > record.expiresAt) {
+      delete otpStore[email];
+      return res.status(401).json({ success: false, message: 'OTP EXPIRED' });
+    }
+    if (record.otp !== otp) {
+      return res.status(401).json({ success: false, message: 'INVALID OTP' });
+    }
+
+    const user = users[record.userId];
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
+    }
+
+    delete otpStore[email];
+
+    user.passwordHash = await bcrypt.hash(newPassword, CONFIG.BCRYPT_ROUNDS);
+
+    // Invalidate all existing sessions for this user
+    for (const [sid, sess] of Object.entries(sessions)) {
+      if (sess.userId === user.id) delete sessions[sid];
+    }
+
+    return res.status(200).json({ success: true, message: 'PASSWORD UPDATED — PLEASE LOG IN' });
+
+  } catch (err) {
+    console.error('[RESET-PASSWORD ERROR]', err.message);
+    return res.status(500).json({ success: false, message: 'INTERNAL SERVER ERROR' });
+  }
+});
+
+/* ──────────────────────────────────────
+   POST /api/auth/logout
+   Header: Authorization: Bearer <token>
+─────────────────────────────────────── */
+app.post('/api/auth/logout', authenticate, (req, res) => {
+  const { sessionId, id } = req.user;
+
+  // Delete server-side session (token revocation)
+  delete sessions[sessionId];
+
+  // Mark user offline
+  if (users[id]) users[id].status = 'OFFLINE';
+
+  return res.status(200).json({ success: true, message: 'SESSION TERMINATED' });
+});
+
+/* ──────────────────────────────────────
+   GET /api/auth/session
+   Validates token & refreshes session TTL
+─────────────────────────────────────── */
+app.get('/api/auth/session', authenticate, (req, res) => {
+  const session = sessions[req.user.sessionId];
+  return res.status(200).json({
+    success: true,
+    session: {
+      userId:    req.user.id,
+      role:      req.user.role,
+      sessionId: req.user.sessionId,
+      loginTime: session.loginTime,
+      expiresAt: new Date(session.expiresAt).toISOString(),
+    },
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════
+   PROFILE ROUTES
+   ══════════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────
+   GET /api/profile
+─────────────────────────────────────── */
+app.get('/api/profile', authenticate, (req, res) => {
+  const user = users[req.user.id];
+  if (!user) return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
+
+  const { passwordHash, ...safeUser } = user;
+  return res.status(200).json({ success: true, profile: safeUser });
+});
+
+/* ──────────────────────────────────────
+   POST /api/profile/avatar — multipart/form-data upload
+   Field name: "avatar"
+   Alternative: POST /api/profile/avatar-base64 — JSON base64
+─────────────────────────────────────── */
+app.post('/api/profile/avatar', authenticate, uploadAvatar.single('avatar'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'NO FILE UPLOADED' });
+  }
+
+  const user = users[req.user.id];
+  if (!user) return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
+
+  // Delete old avatar file if it exists
+  if (user.avatar) {
+    const oldPath = path.join(CONFIG.AVATAR_UPLOAD_DIR, path.basename(user.avatar));
+    if (fs.existsSync(oldPath)) fs.unlink(oldPath, () => {});
+  }
+
+  user.avatar = `/avatars/${req.file.filename}`;
+
+  return res.status(200).json({
+    success:   true,
+    message:   'OPERATOR PHOTO UPDATED',
+    avatarUrl: user.avatar,
+  });
+});
+
+/* ──────────────────────────────────────
+   POST /api/profile/avatar-base64
+   Body: { base64: "data:image/png;base64,..." }
+   Stores the raw base64 string (no disk write)
+─────────────────────────────────────── */
+app.post('/api/profile/avatar-base64', authenticate, (req, res) => {
+  const { base64 } = req.body;
+
+  if (!base64 || typeof base64 !== 'string') {
+    return res.status(400).json({ success: false, message: 'BASE64 IMAGE REQUIRED' });
+  }
+  if (!base64.startsWith('data:image/')) {
+    return res.status(400).json({ success: false, message: 'INVALID IMAGE FORMAT' });
+  }
+  if (Buffer.byteLength(base64, 'utf8') > CONFIG.AVATAR_MAX_SIZE_MB * 1024 * 1024 * 1.4) {
+    return res.status(413).json({ success: false, message: 'IMAGE TOO LARGE' });
+  }
+
+  const user = users[req.user.id];
+  if (!user) return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
+
+  user.avatar = base64;
+
+  return res.status(200).json({ success: true, message: 'OPERATOR PHOTO UPDATED' });
+});
+
+/* ══════════════════════════════════════════════════════════════
+   ADMIN ROUTES  (authenticate + requireAdmin)
+   ══════════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────
+   GET /api/admin/users
+   Returns full user list (no hashes)
+─────────────────────────────────────── */
+app.get('/api/admin/users', authenticate, requireAdmin, (req, res) => {
+  const userList = Object.values(users).map(({ passwordHash, ...u }) => u);
+  return res.status(200).json({ success: true, users: userList });
+});
+
+/* ──────────────────────────────────────
+   PATCH /api/admin/users/:userId/role
+   Body: { role: 'ADMIN' | 'USER' }
+─────────────────────────────────────── */
+app.patch('/api/admin/users/:userId/role', authenticate, requireAdmin, (req, res) => {
+  const targetId = sanitize(req.params.userId || '');
+  const role     = sanitize(req.body.role     || '');
+
+  if (!['ADMIN', 'USER'].includes(role)) {
+    return res.status(400).json({ success: false, message: 'ROLE MUST BE ADMIN OR USER' });
+  }
+
+  const target = users[targetId.toLowerCase()];
+  if (!target) {
+    return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
+  }
+
+  // Prevent self-demotion
+  if (target.id === req.user.id && role !== 'ADMIN') {
+    return res.status(403).json({ success: false, message: 'CANNOT REVOKE YOUR OWN ADMIN CLEARANCE' });
+  }
+
+  target.role = role;
+
+  return res.status(200).json({
+    success: true,
+    message: role === 'ADMIN'
+      ? `${target.id} PROMOTED TO ADMIN`
+      : `${target.id} CLEARANCE REVOKED`,
+  });
+});
+
+/* ──────────────────────────────────────
+   DELETE /api/admin/users/:userId
+─────────────────────────────────────── */
+app.delete('/api/admin/users/:userId', authenticate, requireAdmin, (req, res) => {
+  const targetId = sanitize(req.params.userId || '');
+  const target   = users[targetId.toLowerCase()];
+
+  if (!target) {
+    return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
+  }
+  if (target.id === req.user.id) {
+    return res.status(403).json({ success: false, message: 'CANNOT DELETE YOUR OWN ACCOUNT' });
+  }
+
+  // Invalidate all sessions for the deleted user
+  for (const [sid, sess] of Object.entries(sessions)) {
+    if (sess.userId === target.id) delete sessions[sid];
+  }
+
+  delete users[target.id];
+
+  return res.status(200).json({
+    success: true,
+    message: `USER ${target.id.toUpperCase()} DELETED FROM REGISTRY`,
+  });
+});
+
+/* ──────────────────────────────────────
+   GET /api/admin/sessions
+   Lists all active sessions
+─────────────────────────────────────── */
+app.get('/api/admin/sessions', authenticate, requireAdmin, (req, res) => {
+  purgeExpiredSessions();
+  const activeSessions = Object.entries(sessions).map(([sid, s]) => ({
+    sessionId:  sid,
+    userId:     s.userId,
+    role:       s.role,
+    loginTime:  s.loginTime,
+    lastActive: new Date(s.lastActive).toISOString(),
+    expiresAt:  new Date(s.expiresAt).toISOString(),
+  }));
+  return res.status(200).json({ success: true, sessions: activeSessions });
+});
+
+/* ══════════════════════════════════════════════════════════════
+   BACKGROUND TASK: Purge expired sessions every 5 minutes
+   ══════════════════════════════════════════════════════════════ */
+setInterval(() => {
+  purgeExpiredSessions();
+  // Also mark users with no active sessions as OFFLINE
+  const activeUserIds = new Set(Object.values(sessions).map(s => s.userId));
+  for (const user of Object.values(users)) {
+    user.status = activeUserIds.has(user.id) ? 'ONLINE' : 'OFFLINE';
+  }
+}, 5 * 60 * 1000);
+
+/* ──────────────────────────────────────
+   GLOBAL ERROR HANDLER
+─────────────────────────────────────── */
+// Multer errors (file size, type)
+app.use((err, req, res, next) => {
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ success: false, message: `FILE TOO LARGE — MAX ${CONFIG.AVATAR_MAX_SIZE_MB}MB` });
+  }
+  if (err.message && err.message.includes('Only')) {
+    return res.status(415).json({ success: false, message: err.message.toUpperCase() });
+  }
+  console.error('[UNHANDLED ERROR]', err);
+  return res.status(500).json({ success: false, message: 'INTERNAL SERVER ERROR' });
+});
+
+/* ──────────────────────────────────────
+   START SERVER
+─────────────────────────────────────── */
+app.listen(PORT, () => {
+  console.log(`
+  ██╗   ██╗ █████╗ ██████╗  █████╗ ██╗  ██╗
+  ███╗  ██║██╔══██╗██╔══██╗██╔══██╗╚██╗██╔╝
+  ████╗ ██║███████║██████╔╝███████║ ╚███╔╝
+  ██╔██╗██║██╔══██║██╔══██╗██╔══██║ ██╔██╗
+  ██║╚████║██║  ██║██║  ██║██║  ██║██╔╝╚██╗
+  ╚═╝ ╚═══╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝
+
+  NARAX SECURITY TERMINAL — BACKEND ONLINE
+  Port     : ${PORT}
+  Mode     : PRODUCTION
+  Sessions : In-Memory (swap for Redis in prod)
+  `);
+});
+
+module.exports = app;

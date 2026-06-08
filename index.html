@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NARAX // Secure Access Terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<!-- Background layers -->
+<div class="bg-grid"></div>
+<div class="bg-scanlines"></div>
+<div class="bg-vignette"></div>
+<div class="bg-particles" id="particles"></div>
+
+<!-- ═══════════════════════════════════════════
+     VIEW: AUTH (Login / Register)
+═══════════════════════════════════════════ -->
+<div class="view active" id="view-auth">
+  <div class="auth-shell">
+    <div class="auth-brand">
+      <div class="brand-glyph">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <polygon points="24,2 46,13 46,35 24,46 2,35 2,13" stroke="var(--cyan)" stroke-width="1.5" fill="none"/>
+          <polygon points="24,10 38,17.5 38,30.5 24,38 10,30.5 10,17.5" stroke="var(--purple)" stroke-width="1" fill="none" opacity="0.6"/>
+          <circle cx="24" cy="24" r="4" fill="var(--cyan)" opacity="0.9"/>
+          <line x1="24" y1="10" x2="24" y2="18" stroke="var(--cyan)" stroke-width="1"/>
+          <line x1="24" y1="30" x2="24" y2="38" stroke="var(--cyan)" stroke-width="1"/>
+          <line x1="10" y1="17.5" x2="17" y2="21.5" stroke="var(--cyan)" stroke-width="1"/>
+          <line x1="31" y1="26.5" x2="38" y2="30.5" stroke="var(--cyan)" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">NARAX</span>
+        <span class="brand-sub">SECURE ACCESS TERMINAL v2.4.1</span>
+      </div>
+    </div>
+
+    <!-- Tab switcher -->
+    <div class="auth-tabs">
+      <button class="tab-btn active" data-tab="login" onclick="switchTab('login')">LOGIN</button>
+      <button class="tab-btn" data-tab="register" onclick="switchTab('register')">REGISTER</button>
+      <div class="tab-indicator"></div>
+    </div>
+
+    <!-- Admin toggle -->
+    <div class="admin-toggle-row">
+      <span class="toggle-label">ADMIN ACCESS</span>
+      <label class="switch">
+        <input type="checkbox" id="adminToggle" onchange="toggleAdminMode()"/>
+        <span class="slider"></span>
+      </label>
+      <span class="admin-badge" id="adminBadge">RESTRICTED</span>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <form class="auth-form active" id="form-login" onsubmit="handleLogin(event)">
+      <div class="field-group">
+        <label class="field-label">USER ID</label>
+        <div class="field-wrap">
+          <span class="field-icon">⬡</span>
+          <input type="text" class="field-input" id="login-userid" placeholder="enter user identifier" autocomplete="off"/>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">PASSWORD</label>
+        <div class="field-wrap">
+          <span class="field-icon">◈</span>
+          <input type="password" class="field-input" id="login-password" placeholder="enter access key"/>
+          <button type="button" class="field-eye" onclick="togglePasswordVisibility('login-password', this)">◉</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="remember-label">
+          <input type="checkbox" id="rememberMe" class="custom-check"/>
+          <span class="checkmark"></span>
+          <span>REMEMBER THIS TERMINAL</span>
+        </label>
+        <button type="button" class="link-btn" onclick="showView('view-forgot')">FORGOT KEY?</button>
+      </div>
+      <button type="submit" class="btn-primary">
+        <span class="btn-text">AUTHENTICATE</span>
+        <span class="btn-glow"></span>
+      </button>
+    </form>
+
+    <!-- REGISTER FORM -->
+    <form class="auth-form" id="form-register" onsubmit="handleRegister(event)">
+      <div class="field-group">
+        <label class="field-label">USER ID</label>
+        <div class="field-wrap">
+          <span class="field-icon">⬡</span>
+          <input type="text" class="field-input" id="reg-userid" placeholder="choose identifier" autocomplete="off"/>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">EMAIL ADDRESS</label>
+        <div class="field-wrap">
+          <span class="field-icon">◎</span>
+          <input type="email" class="field-input" id="reg-email" placeholder="secure@domain.com"/>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">ACCESS KEY</label>
+        <div class="field-wrap">
+          <span class="field-icon">◈</span>
+          <input type="password" class="field-input" id="reg-password" placeholder="create strong key" oninput="updateStrengthBar(this.value)"/>
+          <button type="button" class="field-eye" onclick="togglePasswordVisibility('reg-password', this)">◉</button>
+        </div>
+        <div class="strength-bar-wrap">
+          <div class="strength-bar" id="strengthBar">
+            <div class="strength-fill" id="strengthFill"></div>
+          </div>
+          <span class="strength-label" id="strengthLabel">AWAITING INPUT</span>
+        </div>
+        <div class="strength-checks" id="strengthChecks">
+          <span class="check-item" id="chk-len">⬜ 8+ CHARS</span>
+          <span class="check-item" id="chk-upper">⬜ UPPERCASE</span>
+          <span class="check-item" id="chk-num">⬜ NUMBER</span>
+          <span class="check-item" id="chk-sym">⬜ SYMBOL</span>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="remember-label">
+          <input type="checkbox" id="termsCheck" class="custom-check"/>
+          <span class="checkmark"></span>
+          <span>ACCEPT SECURITY PROTOCOLS</span>
+        </label>
+      </div>
+      <button type="submit" class="btn-primary">
+        <span class="btn-text">INITIALIZE ACCOUNT</span>
+        <span class="btn-glow"></span>
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      <span class="watermark">MADE BY NARAX</span>
+      <span class="status-dot"></span>
+      <span class="status-text">ENCRYPTED CHANNEL ACTIVE</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     VIEW: FORGOT PASSWORD
+═══════════════════════════════════════════ -->
+<div class="view" id="view-forgot">
+  <div class="auth-shell compact">
+    <div class="view-header">
+      <button class="back-btn" onclick="showView('view-auth')">← BACK</button>
+      <h2 class="view-title">KEY RECOVERY</h2>
+    </div>
+    <p class="view-desc">Enter your registered email to receive a recovery cipher.</p>
+    <form onsubmit="handleForgot(event)">
+      <div class="field-group">
+        <label class="field-label">REGISTERED EMAIL</label>
+        <div class="field-wrap">
+          <span class="field-icon">◎</span>
+          <input type="email" class="field-input" id="forgot-email" placeholder="your@email.com"/>
+        </div>
+      </div>
+      <button type="submit" class="btn-primary">
+        <span class="btn-text">TRANSMIT RECOVERY CODE</span>
+        <span class="btn-glow"></span>
+      </button>
+    </form>
+    <div class="divider"><span>OR VERIFY IDENTITY</span></div>
+    <div class="otp-section">
+      <p class="view-desc">Enter the 6-digit OTP sent to your device.</p>
+      <div class="otp-grid" id="otpGrid">
+        <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove(this, 0)"/>
+        <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove(this, 1)"/>
+        <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove(this, 2)"/>
+        <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove(this, 3)"/>
+        <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove(this, 4)"/>
+        <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove(this, 5)"/>
+      </div>
+      <button class="btn-primary" onclick="verify2FA()">
+        <span class="btn-text">VERIFY & PROCEED</span>
+        <span class="btn-glow"></span>
+      </button>
+    </div>
+    <div class="auth-footer">
+      <span class="watermark">MADE BY NARAX</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     VIEW: 2FA CHALLENGE
+═══════════════════════════════════════════ -->
+<div class="view" id="view-2fa">
+  <div class="auth-shell compact">
+    <div class="view-header">
+      <h2 class="view-title">TWO-FACTOR AUTHENTICATION</h2>
+    </div>
+    <div class="tfa-icon">
+      <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+        <circle cx="28" cy="28" r="26" stroke="var(--cyan)" stroke-width="1" stroke-dasharray="4 3"/>
+        <circle cx="28" cy="28" r="18" stroke="var(--purple)" stroke-width="1"/>
+        <path d="M20 26h16M28 18v20" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <p class="view-desc">A one-time cipher has been dispatched. Enter it below to complete authentication.</p>
+    <div class="otp-grid" id="otpGrid2fa">
+      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove2fa(this, 0)"/>
+      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove2fa(this, 1)"/>
+      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove2fa(this, 2)"/>
+      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove2fa(this, 3)"/>
+      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove2fa(this, 4)"/>
+      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove2fa(this, 5)"/>
+    </div>
+    <div class="otp-timer">
+      <span>CODE EXPIRES IN: </span>
+      <span class="otp-countdown" id="otpCountdown">05:00</span>
+    </div>
+    <button class="btn-primary" onclick="verify2FA()">
+      <span class="btn-text">CONFIRM IDENTITY</span>
+      <span class="btn-glow"></span>
+    </button>
+    <div class="auth-footer">
+      <span class="watermark">MADE BY NARAX</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     VIEW: USER DASHBOARD
+═══════════════════════════════════════════ -->
+<div class="view" id="view-dashboard">
+  <div class="dashboard-shell">
+
+    <!-- Top bar -->
+    <header class="dash-header">
+      <div class="dash-brand">
+        <span class="brand-name-sm">NARAX</span>
+        <span class="dash-divider">|</span>
+        <span class="dash-context" id="dashContext">USER TERMINAL</span>
+      </div>
+      <div class="dash-actions">
+        <button class="icon-btn" id="adminPanelBtn" onclick="showView('view-admin')" style="display:none" title="Admin Panel">⬡ ADMIN</button>
+        <button class="icon-btn" onclick="handleLogout()">LOGOUT ⏻</button>
+      </div>
+    </header>
+
+    <div class="dash-grid">
+
+      <!-- Profile card -->
+      <div class="dash-card profile-card">
+        <div class="card-label">OPERATOR PROFILE</div>
+        <div class="profile-content">
+          <div class="avatar-zone" onclick="document.getElementById('avatarUpload').click()">
+            <div class="avatar-ring">
+              <img id="avatarImg" src="" alt="" style="display:none"/>
+              <div class="avatar-placeholder" id="avatarPlaceholder">
+                <span>◈</span>
+              </div>
+            </div>
+            <div class="avatar-upload-hint">UPLOAD PHOTO</div>
+            <input type="file" id="avatarUpload" accept="image/*" style="display:none" onchange="handleAvatarUpload(this)"/>
+          </div>
+          <div class="profile-meta">
+            <div class="meta-row">
+              <span class="meta-key">OPERATOR</span>
+              <span class="meta-val" id="dashUser">—</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-key">SESSION ID</span>
+              <span class="meta-val mono" id="dashSessionId">—</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-key">LOGIN TIME</span>
+              <span class="meta-val mono" id="dashLoginTime">—</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-key">AUTH MODE</span>
+              <span class="meta-val" id="dashAuthMode">—</span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-key">CLEARANCE</span>
+              <span class="meta-val" id="dashClearance">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Session expiry countdown -->
+      <div class="dash-card expiry-card">
+        <div class="card-label">SESSION EXPIRY</div>
+        <div class="expiry-display">
+          <div class="expiry-ring">
+            <svg class="ring-svg" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="52" stroke="var(--border)" stroke-width="2" fill="none"/>
+              <circle cx="60" cy="60" r="52" stroke="var(--cyan)" stroke-width="2" fill="none"
+                stroke-dasharray="326.7" stroke-dashoffset="0" id="expiryRingProgress"
+                stroke-linecap="round" transform="rotate(-90 60 60)"/>
+            </svg>
+            <div class="expiry-inner">
+              <span class="expiry-time" id="expiryCountdown">30:00</span>
+              <span class="expiry-sub">REMAINING</span>
+            </div>
+          </div>
+        </div>
+        <div class="expiry-bar-wrap">
+          <div class="expiry-bar"><div class="expiry-fill" id="expiryFill"></div></div>
+          <span class="expiry-note">AUTO-LOGOUT ON INACTIVITY</span>
+        </div>
+      </div>
+
+      <!-- Threats blocker widget -->
+      <div class="dash-card threats-card">
+        <div class="card-label">THREATS BLOCKER <span class="live-badge">● LIVE</span></div>
+        <div class="threats-grid">
+          <div class="threat-item">
+            <div class="threat-label">BRUTE FORCE</div>
+            <div class="threat-bar-wrap"><div class="threat-bar"><div class="threat-fill green" id="tf-brute" style="width:0%"></div></div></div>
+            <span class="threat-count" id="tc-brute">0 BLOCKED</span>
+          </div>
+          <div class="threat-item">
+            <div class="threat-label">SQL INJECT</div>
+            <div class="threat-bar-wrap"><div class="threat-bar"><div class="threat-fill cyan" id="tf-sql" style="width:0%"></div></div></div>
+            <span class="threat-count" id="tc-sql">0 BLOCKED</span>
+          </div>
+          <div class="threat-item">
+            <div class="threat-label">XSS ATTACKS</div>
+            <div class="threat-bar-wrap"><div class="threat-bar"><div class="threat-fill purple" id="tf-xss" style="width:0%"></div></div></div>
+            <span class="threat-count" id="tc-xss">0 BLOCKED</span>
+          </div>
+          <div class="threat-item">
+            <div class="threat-label">DDOS TRAFFIC</div>
+            <div class="threat-bar-wrap"><div class="threat-bar"><div class="threat-fill orange" id="tf-ddos" style="width:0%"></div></div></div>
+            <span class="threat-count" id="tc-ddos">0 BLOCKED</span>
+          </div>
+          <div class="threat-item">
+            <div class="threat-label">PORT SCANS</div>
+            <div class="threat-bar-wrap"><div class="threat-bar"><div class="threat-fill purple" id="tf-port" style="width:0%"></div></div></div>
+            <span class="threat-count" id="tc-port">0 BLOCKED</span>
+          </div>
+        </div>
+        <div class="threats-total">
+          <span>TOTAL BLOCKED TODAY:</span>
+          <span class="threats-total-num" id="threatsTotal">0</span>
+        </div>
+        <div class="threat-log" id="threatLog"></div>
+      </div>
+
+      <!-- System status -->
+      <div class="dash-card status-card">
+        <div class="card-label">SYSTEM INTEGRITY</div>
+        <div class="status-list">
+          <div class="status-item"><span class="s-dot green"></span><span>FIREWALL</span><span class="s-val green">ACTIVE</span></div>
+          <div class="status-item"><span class="s-dot green"></span><span>ENCRYPTION</span><span class="s-val green">AES-256</span></div>
+          <div class="status-item"><span class="s-dot cyan"></span><span>SSL CERT</span><span class="s-val cyan">VALID</span></div>
+          <div class="status-item"><span class="s-dot cyan"></span><span>2FA ENGINE</span><span class="s-val cyan">READY</span></div>
+          <div class="status-item"><span class="s-dot purple"></span><span>RATE LIMITER</span><span class="s-val purple">ARMED</span></div>
+          <div class="status-item"><span class="s-dot green"></span><span>HELMET HEADERS</span><span class="s-val green">SET</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <footer class="dash-foot">
+      <span class="watermark">MADE BY NARAX</span>
+      <span class="foot-copy">© 2025 NARAX SECURITY SYSTEMS — ALL RIGHTS RESERVED</span>
+    </footer>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     VIEW: ADMIN PANEL
+═══════════════════════════════════════════ -->
+<div class="view" id="view-admin">
+  <div class="dashboard-shell">
+    <header class="dash-header">
+      <div class="dash-brand">
+        <span class="brand-name-sm">NARAX</span>
+        <span class="dash-divider">|</span>
+        <span class="dash-context admin-ctx">ADMIN CONTROL PANEL</span>
+      </div>
+      <div class="dash-actions">
+        <button class="icon-btn" onclick="showView('view-dashboard')">← DASHBOARD</button>
+        <button class="icon-btn" onclick="handleLogout()">LOGOUT ⏻</button>
+      </div>
+    </header>
+
+    <div class="admin-header-row">
+      <h2 class="admin-title">USER MANAGEMENT SYSTEM</h2>
+      <div class="admin-stats">
+        <div class="admin-stat"><span class="stat-num" id="statTotal">0</span><span>TOTAL</span></div>
+        <div class="admin-stat"><span class="stat-num cyan" id="statAdmins">0</span><span>ADMINS</span></div>
+        <div class="admin-stat"><span class="stat-num purple" id="statActive">0</span><span>ACTIVE</span></div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="user-table" id="userTable">
+        <thead>
+          <tr>
+            <th>USER ID</th>
+            <th>EMAIL</th>
+            <th>CLEARANCE</th>
+            <th>STATUS</th>
+            <th>JOINED</th>
+            <th>ACTIONS</th>
+          </tr>
+        </thead>
+        <tbody id="userTableBody"></tbody>
+      </table>
+    </div>
+
+    <footer class="dash-foot">
+      <span class="watermark">MADE BY NARAX</span>
+      <span class="foot-copy">© 2025 NARAX SECURITY SYSTEMS — ADMIN ACCESS LOGGED</span>
+    </footer>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     OVERLAY: INACTIVITY WARNING
+═══════════════════════════════════════════ -->
+<div class="overlay hidden" id="inactivityOverlay">
+  <div class="overlay-box">
+    <div class="overlay-icon">⚠</div>
+    <h3 class="overlay-title">INACTIVITY DETECTED</h3>
+    <p class="overlay-msg">Your session will be terminated in <span id="inactivityCountdown" class="overlay-countdown">60</span> seconds.</p>
+    <button class="btn-primary" onclick="resetInactivity()">
+      <span class="btn-text">STAY CONNECTED</span>
+      <span class="btn-glow"></span>
+    </button>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
