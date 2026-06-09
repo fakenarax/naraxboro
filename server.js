@@ -2,12 +2,23 @@
    NARAX SECURITY TERMINAL — BACKEND SERVER
    Node.js / Express  |  Production-Ready
    ══════════════════════════════════════════════════════════════ */
+require('dotenv').config();
 
 'use strict';
 
 /* ──────────────────────────────────────
    DEPENDENCIES
 ─────────────────────────────────────── */
+const cors          = require('cors');
+app.use(cors({
+  origin: [
+    'https://naraxboro.netlify.app',
+    'http://localhost:3000',
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 const express       = require('express');
 const helmet        = require('helmet');
 const rateLimit     = require('express-rate-limit');
@@ -24,6 +35,17 @@ const { v4: uuidv4 }= require('uuid');
    APP INIT
 ─────────────────────────────────────── */
 const app  = express();
+
+// ── CORS ─────────────────────────────────────────────────────
+app.use(cors({
+  origin: [
+    'https://naraxboro.netlify.app',
+    'http://localhost:3000',
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 const PORT = process.env.PORT || 3000;
 
 /* ──────────────────────────────────────
