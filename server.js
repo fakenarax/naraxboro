@@ -10,15 +10,6 @@ require('dotenv').config();
    DEPENDENCIES
 ─────────────────────────────────────── */
 const cors          = require('cors');
-app.use(cors({
-  origin: [
-    'https://naraxboro.netlify.app',
-    'http://localhost:3000',
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
 const express       = require('express');
 const helmet        = require('helmet');
 const rateLimit     = require('express-rate-limit');
