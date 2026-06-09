@@ -60,7 +60,7 @@ const CONFIG = {
   EMAIL_FROM_ADDRESS:  process.env.EMAIL_USER     || 'YOUR_EMAIL@gmail.com',   // ← paste here
 
   // ── SECURITY ──────────────────────────────────────────────────
-  BCRYPT_ROUNDS:       10,
+  BCRYPT_ROUNDS:       8,
   OTP_EXPIRY_MS:       5 * 60 * 1000,   // 5 minutes
   SESSION_EXPIRY_MS:   30 * 60 * 1000,  // 30 minutes inactivity TTL (server-side)
 
@@ -380,13 +380,15 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
       userId:    newUser.id,
     };
 
-    await sendOTPEmail(email.toLowerCase(), otp, 'login');
+sendOTPEmail(email.toLowerCase(), otp, 'login').catch(err => 
+  console.error('[EMAIL ERROR]', err.message)
+);
 
-    return res.status(201).json({
-      success: true,
-      message: 'ACCOUNT CREATED — OTP DISPATCHED TO EMAIL',
-      userId:  newUser.id,
-    });
+return res.status(201).json({
+  success: true,
+  message: 'ACCOUNT CREATED — OTP DISPATCHED TO EMAIL',
+  userId:  newUser.id,
+});
 
   } catch (err) {
     console.error('[REGISTER ERROR]', err.message);
@@ -427,7 +429,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       userId:    user.id,
     };
 
-    await sendOTPEmail(user.email, otp, 'login');
+    sendOTPEmail(user.email, otp, 'login');
 
     return res.status(200).json({
       success: true,
@@ -547,7 +549,7 @@ app.post('/api/auth/forgot-password', otpLimiter, async (req, res) => {
         purpose:   'reset',
         userId:    user.id,
       };
-      await sendOTPEmail(email, otp, 'reset');
+     sendOTPEmail(email, otp, 'reset');
     }
 
     return res.status(200).json({
