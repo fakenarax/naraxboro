@@ -28,6 +28,7 @@ const { v4: uuidv4 }= require('uuid');
 const app  = express();
 
 // ── CORS ─────────────────────────────────────────────────────
+app.set('trust proxy', 1);
 app.use(cors({
   origin: [
     'https://naraxboro.netlify.app',
