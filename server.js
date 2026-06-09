@@ -59,7 +59,7 @@ const CONFIG = {
   EMAIL_FROM_ADDRESS:  process.env.EMAIL_USER     || 'YOUR_EMAIL@gmail.com',   // ← paste here
 
   // ── SECURITY ──────────────────────────────────────────────────
-  BCRYPT_ROUNDS:       12,
+  BCRYPT_ROUNDS:       10,
   OTP_EXPIRY_MS:       5 * 60 * 1000,   // 5 minutes
   SESSION_EXPIRY_MS:   30 * 60 * 1000,  // 30 minutes inactivity TTL (server-side)
 
@@ -140,14 +140,7 @@ const uploadAvatar = multer({
 
 // 1. Secure HTTP headers
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc:  ["'self'"],
-      styleSrc:   ["'self'", "'unsafe-inline'"],
-      imgSrc:     ["'self'", 'data:', 'blob:'],
-    },
-  },
+  contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
 }));
 
@@ -840,10 +833,9 @@ app.use((err, req, res, next) => {
   return res.status(500).json({ success: false, message: 'INTERNAL SERVER ERROR' });
 });
 
-// Keep Render free tier alive — paste before app.listen()
+const https = require('https');
 setInterval(() => {
-  fetch('https://naraxboro.onrender.com/api/health')
-    .catch(() => {});
+  https.get('https://naraxboro.onrender.com/api/health', () => {}).on('error', () => {});
 }, 14 * 60 * 1000);
 
 // Also add this health check route
