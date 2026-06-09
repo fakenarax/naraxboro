@@ -840,6 +840,17 @@ app.use((err, req, res, next) => {
   return res.status(500).json({ success: false, message: 'INTERNAL SERVER ERROR' });
 });
 
+// Keep Render free tier alive — paste before app.listen()
+setInterval(() => {
+  fetch('https://naraxboro.onrender.com/api/health')
+    .catch(() => {});
+}, 14 * 60 * 1000);
+
+// Also add this health check route
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ONLINE' });
+});
+
 /* ──────────────────────────────────────
    START SERVER
 ─────────────────────────────────────── */
