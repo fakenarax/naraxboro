@@ -475,9 +475,29 @@ function startSession(info) {
   resetInactivityTracking();
   startThreatSimulation();
   showToast(`WELCOME, ${info.userId.toUpperCase()}`, 'success');
+  loadAvatarLocally();
 
   // Pre-fetch admin data in background if admin
   if (state.isAdmin) fetchAdminUsers();
+}
+
+/* ─────────────────────────────────────
+   AVATAR — persist in localStorage
+───────────────────────────────────── */
+function saveAvatarLocally(base64) {
+  try { localStorage.setItem('narax_avatar_' + state.currentUser, base64); } catch {}
+}
+
+function loadAvatarLocally() {
+  try {
+    const saved = localStorage.getItem('narax_avatar_' + state.currentUser);
+    if (saved) {
+      const img = document.getElementById('avatarImg');
+      const placeholder = document.getElementById('avatarPlaceholder');
+      if (img) { img.src = saved; img.style.display = 'block'; }
+      if (placeholder) placeholder.style.display = 'none';
+    }
+  } catch {}
 }
 
 /* ─────────────────────────────────────
@@ -778,6 +798,7 @@ function handleAvatarUpload(input) {
         method: 'POST',
         body:   JSON.stringify({ base64 }),
       });
+      if (ok) saveAvatarLocally(base64);
       showToast(ok ? 'OPERATOR PHOTO UPDATED' : (data.message || 'UPLOAD FAILED'), ok ? 'success' : 'error');
     } catch {
       showToast('CONNECTION ERROR — PHOTO SAVED LOCALLY ONLY', 'error');
