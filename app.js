@@ -117,13 +117,17 @@ function switchTab(tab) {
    ADMIN TOGGLE
 ───────────────────────────────────── */
 function toggleAdminMode() {
-  // Admin status is determined by server role only — not this toggle
+  // This toggle is purely visual — admin access is granted by server role only
   const toggle = document.getElementById('adminToggle');
-  toggle.checked = false; // always reset
-  const badge = document.getElementById('adminBadge');
-  badge.textContent = 'RESTRICTED';
-  badge.classList.remove('active');
-  showToast('ADMIN ACCESS IS RESTRICTED — CONTACT ADMINISTRATOR', 'error');
+  const badge   = document.getElementById('adminBadge');
+  if (toggle.checked) {
+    badge.textContent = 'ENABLED';
+    badge.classList.add('active');
+    showToast('ADMIN CREDENTIALS REQUIRED — ENTER ADMIN USER ID & PASSWORD', 'info');
+  } else {
+    badge.textContent = 'RESTRICTED';
+    badge.classList.remove('active');
+  }
 }
 
 /* ─────────────────────────────────────
