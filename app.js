@@ -479,6 +479,7 @@ function startSession(info) {
 
   // Load avatar from MongoDB (works across devices)
   apiFetch('/api/profile').then(({ ok, data }) => {
+    console.log('PROFILE FETCH:', ok, JSON.stringify(data));
     if (ok && data.profile && data.profile.avatar) {
       const img = document.getElementById('avatarImg');
       const placeholder = document.getElementById('avatarPlaceholder');
@@ -486,7 +487,7 @@ function startSession(info) {
       if (placeholder) placeholder.style.display = 'none';
       saveAvatarLocally(data.profile.avatar);
     }
-  });
+  }).catch(err => console.error('PROFILE FETCH ERROR:', err));
 
   // Pre-fetch admin data in background if admin
   if (state.isAdmin) fetchAdminUsers();
