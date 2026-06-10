@@ -192,8 +192,8 @@ app.use(helmet({
 }));
 
 // 2. Body parsers — cap at 1 MB to prevent payload attacks
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 3. Serve frontend & avatars statically
 app.use(express.static(path.join(__dirname)));
