@@ -371,24 +371,11 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
     };
     users[newUser.id] = newUser;
 
-    // Generate & send OTP for email verification / 2FA
-    const otp = generateOTP();
-    otpStore[email.toLowerCase()] = {
-      otp,
-      expiresAt: Date.now() + CONFIG.OTP_EXPIRY_MS,
-      purpose:   'login',
-      userId:    newUser.id,
-    };
-
-sendOTPEmail(email.toLowerCase(), otp, 'login').catch(err => 
-  console.error('[EMAIL ERROR]', err.message)
-);
-
-return res.status(201).json({
-  success: true,
-  message: 'ACCOUNT CREATED — OTP DISPATCHED TO EMAIL',
-  userId:  newUser.id,
-});
+    return res.status(201).json({
+      success: true,
+      message: 'ACCOUNT CREATED — PLEASE LOG IN',
+      userId:  newUser.id,
+    });
 
   } catch (err) {
     console.error('[REGISTER ERROR]', err.message);
@@ -420,22 +407,40 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       return res.status(401).json({ success: false, message: 'INVALID CREDENTIALS' });
     }
 
-    // Generate & email OTP for 2FA
-    const otp = generateOTP();
-    otpStore[user.email] = {
-      otp,
-      expiresAt: Date.now() + CONFIG.OTP_EXPIRY_MS,
-      purpose:   'login',
-      userId:    user.id,
+    // Direct login — no OTP
+    const sessionId = generateSessionId();
+    const loginTime = new Date();
+    const expiresAt = Date.now() + CONFIG.SESSION_EXPIRY_MS;
+
+    sessions[sessionId] = {
+      userId:     user.id,
+      role:       user.role,
+      loginTime:  loginTime.toISOString(),
+      lastActive: Date.now(),
+      expiresAt,
     };
 
-    sendOTPEmail(user.email, otp, 'login');
+    user.status = 'ONLINE';
+
+    const token = jwt.sign(
+      { userId: user.id, role: user.role, sessionId },
+      CONFIG.JWT_SECRET,
+      { expiresIn: CONFIG.JWT_EXPIRES_IN, algorithm: 'HS256' }
+    );
 
     return res.status(200).json({
       success: true,
-      message: 'CREDENTIALS VERIFIED — OTP DISPATCHED',
-      // Return masked email so frontend can display "OTP sent to a***@***.com"
-      maskedEmail: user.email.replace(/^(.{1,3}).*@/, (_, p1) => p1 + '***@'),
+      message: 'ACCESS GRANTED',
+      token,
+      sessionInfo: {
+        sessionId,
+        userId:    user.id,
+        role:      user.role,
+        authMode:  user.role === 'ADMIN' ? 'ADMIN' : 'USER',
+        clearance: user.role === 'ADMIN' ? 'LEVEL 5 — ALPHA' : 'LEVEL 2 — STANDARD',
+        loginTime: loginTime.toISOString(),
+        expiresAt: new Date(expiresAt).toISOString(),
+      },
     });
 
   } catch (err) {

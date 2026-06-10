@@ -224,18 +224,13 @@ async function handleLogin(e) {
       return;
     }
 
-    // Backend verified credentials — OTP dispatched
-    state.pendingUserId  = userId;
-    state.pendingPurpose = 'login';
+    // Direct login — go straight to dashboard
+    state.token   = data.token;
+    const info    = data.sessionInfo;
+    state.isAdmin = info.role === 'ADMIN';
 
-    // Show masked email hint if available
-    const hint = data.maskedEmail ? ` → ${data.maskedEmail}` : '';
-    showToast(`CREDENTIALS VERIFIED — OTP DISPATCHED${hint}`, 'info');
-
-    setTimeout(() => {
-      showView('view-2fa');
-      start2FATimer();
-    }, 900);
+    showToast('ACCESS GRANTED', 'success');
+    setTimeout(() => startSession(info), 800);
 
   } catch {
     showToast('CONNECTION ERROR — CHECK SERVER', 'error');
@@ -272,14 +267,8 @@ async function handleRegister(e) {
       return;
     }
 
-    state.pendingUserId  = data.userId || userId;
-    state.pendingPurpose = 'register';
-
-    showToast('ACCOUNT INITIALIZED — VERIFY IDENTITY', 'success');
-    setTimeout(() => {
-      showView('view-2fa');
-      start2FATimer();
-    }, 900);
+    showToast('ACCOUNT CREATED — PLEASE LOG IN', 'success');
+    setTimeout(() => switchTab('login'), 900);
 
   } catch {
     showToast('CONNECTION ERROR — CHECK SERVER', 'error');
