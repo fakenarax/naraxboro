@@ -715,27 +715,13 @@ app.get('/api/profile', authenticate, async (req, res) => {
    Field name: "avatar"
    Alternative: POST /api/profile/avatar-base64 — JSON base64
 ─────────────────────────────────────── */
-app.post('/api/profile/avatar', authenticate, uploadAvatar.single('avatar'), (req, res) => {
+app.post('/api/profile/avatar', authenticate, uploadAvatar.single('avatar'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'NO FILE UPLOADED' });
   }
-
-  const user = users[req.user.id];
-  if (!user) return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
-
-  // Delete old avatar file if it exists
-  if (user.avatar) {
-    const oldPath = path.join(CONFIG.AVATAR_UPLOAD_DIR, path.basename(user.avatar));
-    if (fs.existsSync(oldPath)) fs.unlink(oldPath, () => {});
-  }
-
-  user.avatar = `/avatars/${req.file.filename}`;
-
-  return res.status(200).json({
-    success:   true,
-    message:   'OPERATOR PHOTO UPDATED',
-    avatarUrl: user.avatar,
-  });
+  const avatarUrl = `/avatars/${req.file.filename}`;
+  await User.updateOne({ userId: req.user.id }, { avatar: avatarUrl });
+  return res.status(200).json({ success: true, message: 'OPERATOR PHOTO UPDATED', avatarUrl });
 });
 
 /* ──────────────────────────────────────
@@ -786,23 +772,23 @@ app.patch('/api/admin/users/:userId/role', authenticate, requireAdmin, async (re
     return res.status(400).json({ success: false, message: 'ROLE MUST BE ADMIN OR USER' });
   }
  
-  const target = users[targetId.toLowerCase()];
+  const target = await User.findOne({ userId: targetId.toLowerCase() });
   if (!target) {
     return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
   }
- 
+
   // Prevent self-demotion
-  if (target.id === req.user.id && role !== 'ADMIN') {
+  if (target.userId === req.user.id && role !== 'ADMIN') {
     return res.status(403).json({ success: false, message: 'CANNOT REVOKE YOUR OWN ADMIN CLEARANCE' });
   }
- 
-  target.role = role;
- 
+
+  await User.updateOne({ userId: targetId.toLowerCase() }, { role });
+
   return res.status(200).json({
     success: true,
     message: role === 'ADMIN'
-      ? `${target.id} PROMOTED TO ADMIN`
-      : `${target.id} CLEARANCE REVOKED`,
+      ? `${target.userId} PROMOTED TO ADMIN`
+      : `${target.userId} CLEARANCE REVOKED`,
   });
 })
 
