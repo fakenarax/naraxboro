@@ -79,7 +79,7 @@ const users = {
   narax_admin: {
     id:           'narax_admin',
     email:        'naraxboro@gmail.com',
-    passwordHash: '$2a$08$ZF8nD3MLdvJC/ezcoWHTm.D8cvUv9Xr4tyDETOxRKLj0GiRV5aFsu'
+    passwordHash: '$2a$08$ZF8nD3MLdvJC/ezcoWHTm.D8cvUv9Xr4tyDETOxRKLj0GiRV5aFsu',
     role:         'ADMIN',
     joined:       '2026-01-01',
     avatar:       null,
