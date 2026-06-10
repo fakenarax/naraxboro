@@ -755,6 +755,11 @@ app.patch('/api/admin/users/:userId/role', authenticate, requireAdmin, (req, res
     return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
   }
 
+  // Primary admin is untouchable by anyone
+  if (target.id === 'narax_admin') {
+    return res.status(403).json({ success: false, message: 'PRIMARY ADMIN CANNOT BE MODIFIED' });
+  }
+
   // Prevent self-demotion
   if (target.id === req.user.id && role !== 'ADMIN') {
     return res.status(403).json({ success: false, message: 'CANNOT REVOKE YOUR OWN ADMIN CLEARANCE' });
@@ -780,8 +785,19 @@ app.delete('/api/admin/users/:userId', authenticate, requireAdmin, (req, res) =>
   if (!target) {
     return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
   }
+  // Cannot delete yourself
   if (target.id === req.user.id) {
     return res.status(403).json({ success: false, message: 'CANNOT DELETE YOUR OWN ACCOUNT' });
+  }
+
+  // Primary admin cannot be deleted by anyone
+  if (target.id === 'narax_admin') {
+    return res.status(403).json({ success: false, message: 'PRIMARY ADMIN CANNOT BE DELETED' });
+  }
+
+  // Only primary admin can delete other admins
+  if (target.role === 'ADMIN' && req.user.id !== 'narax_admin') {
+    return res.status(403).json({ success: false, message: 'ONLY PRIMARY ADMIN CAN DELETE ADMINS' });
   }
 
   // Invalidate all sessions for the deleted user
