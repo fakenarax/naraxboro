@@ -117,10 +117,13 @@ function switchTab(tab) {
    ADMIN TOGGLE
 ───────────────────────────────────── */
 function toggleAdminMode() {
-  state.isAdmin = document.getElementById('adminToggle').checked;
-  const badge   = document.getElementById('adminBadge');
-  badge.textContent = state.isAdmin ? 'ENABLED' : 'RESTRICTED';
-  badge.classList.toggle('active', state.isAdmin);
+  // Admin status is determined by server role only — not this toggle
+  const toggle = document.getElementById('adminToggle');
+  toggle.checked = false; // always reset
+  const badge = document.getElementById('adminBadge');
+  badge.textContent = 'RESTRICTED';
+  badge.classList.remove('active');
+  showToast('ADMIN ACCESS IS RESTRICTED — CONTACT ADMINISTRATOR', 'error');
 }
 
 /* ─────────────────────────────────────
@@ -455,7 +458,7 @@ function startSession(info) {
   document.getElementById('dashUser').textContent      = info.userId;
   document.getElementById('dashSessionId').textContent = info.sessionId;
   document.getElementById('dashLoginTime').textContent = state.loginTime.toLocaleTimeString('en-US', { hour12: false });
-  document.getElementById('dashAuthMode').textContent  = info.authMode   || (state.isAdmin ? 'ADMIN + 2FA' : 'USER + 2FA');
+  document.getElementById('dashAuthMode').textContent  = info.authMode   || (state.isAdmin ? 'ADMIN' : 'USER');
   document.getElementById('dashClearance').textContent = info.clearance  || (state.isAdmin ? 'LEVEL 5 — ALPHA' : 'LEVEL 2 — STANDARD');
   document.getElementById('dashContext').textContent   = state.isAdmin   ? 'ADMIN TERMINAL' : 'USER TERMINAL';
 
