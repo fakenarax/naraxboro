@@ -477,6 +477,17 @@ function startSession(info) {
   showToast(`WELCOME, ${info.userId.toUpperCase()}`, 'success');
   loadAvatarLocally();
 
+  // Load avatar from MongoDB (works across devices)
+  apiFetch('/api/profile').then(({ ok, data }) => {
+    if (ok && data.profile && data.profile.avatar) {
+      const img = document.getElementById('avatarImg');
+      const placeholder = document.getElementById('avatarPlaceholder');
+      if (img) { img.src = data.profile.avatar; img.style.display = 'block'; }
+      if (placeholder) placeholder.style.display = 'none';
+      saveAvatarLocally(data.profile.avatar);
+    }
+  });
+
   // Pre-fetch admin data in background if admin
   if (state.isAdmin) fetchAdminUsers();
 }
