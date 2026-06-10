@@ -44,7 +44,11 @@ const PORT = process.env.PORT || 3000;
 /* ──────────────────────────────────────
    MONGODB CONNECTION
 ─────────────────────────────────────── */
-mongoose.connect(process.env.MONGO_URI)
+mongoose.connect(process.env.MONGO_URI, {
+  serverSelectionTimeoutMS: 30000,
+  connectTimeoutMS: 30000,
+  socketTimeoutMS: 30000,
+})
   .then(() => console.log('[DB] Connected to MongoDB Atlas'))
   .catch(err => console.error('[DB] Connection failed:', err.message));
 
