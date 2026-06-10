@@ -507,7 +507,7 @@ app.post('/api/auth/verify-otp', authLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: 'OTP MUST BE 6 DIGITS' });
     }
 
-    const user = users[userId.toLowerCase()];
+    const user = await User.findOne({ userId: userId.toLowerCase() });
     if (!user) {
       return res.status(401).json({ success: false, message: 'USER NOT FOUND' });
     }
@@ -533,19 +533,19 @@ app.post('/api/auth/verify-otp', authLimiter, async (req, res) => {
     const expiresAt  = Date.now() + CONFIG.SESSION_EXPIRY_MS;
 
     sessions[sessionId] = {
-      userId:     user.id,
+      userId:   user.userId,
       role:       user.role,
       loginTime:  loginTime.toISOString(),
       lastActive: Date.now(),
       expiresAt,
     };
 
-    // Update user status
-    user.status = 'ONLINE';
+    // Update user status in MongoDB
+    await User.updateOne({ userId: user.userId }, { status: 'ONLINE' });;
 
     // Sign JWT — embeds sessionId for server-side revocation support
     const token = jwt.sign(
-      { userId: user.id, role: user.role, sessionId },
+      { userId: user.userId, role: user.role, sessionId },
       CONFIG.JWT_SECRET,
       { expiresIn: CONFIG.JWT_EXPIRES_IN, algorithm: 'HS256' }
     );
@@ -557,7 +557,7 @@ app.post('/api/auth/verify-otp', authLimiter, async (req, res) => {
       // Session metadata for the dashboard display
       sessionInfo: {
         sessionId,
-        userId:     user.id,
+        userId:     user.userId,
         role:       user.role,
         authMode:   user.role === 'ADMIN' ? 'ADMIN + 2FA' : 'USER + 2FA',
         clearance:  user.role === 'ADMIN' ? 'LEVEL 5 — ALPHA' : 'LEVEL 2 — STANDARD',

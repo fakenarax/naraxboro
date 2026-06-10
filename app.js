@@ -8,7 +8,7 @@
 /* ─────────────────────────────────────
    API CONFIG
 ───────────────────────────────────── */
-const API_BASE = '';  // Same origin — server serves the frontend
+const API_BASE = 'https://naraxboro.onrender.com';  // Render backend
 
 async function apiFetch(endpoint, options = {}) {
   const token = state.token;
