@@ -136,6 +136,16 @@ const users = {
 // sessions → { [sessionId]: { userId, role, loginTime, lastActive, expiresAt } }
 const sessions = {};
 
+const sessionSchema = new mongoose.Schema({
+  sessionId:  { type: String, required: true, unique: true },
+  userId:     { type: String, required: true },
+  role:       { type: String, required: true },
+  loginTime:  { type: String },
+  lastActive: { type: Number },
+  expiresAt:  { type: Number },
+}, { collection: 'sessions' });
+const Session = mongoose.model('Session', sessionSchema);
+
 // otpStore → { [email]: { otp, expiresAt, purpose: 'login'|'reset' } }
 const otpStore = {};
 
@@ -287,7 +297,7 @@ function purgeExpiredSessions() {
  * Verifies the Bearer JWT and validates the server-side session.
  * Attaches req.user = { id, role, sessionId } on success.
  */
-function authenticate(req, res, next) {
+async function authenticate(req, res, next) {
   purgeExpiredSessions();
 
   const authHeader = req.headers['authorization'];
@@ -305,9 +315,16 @@ function authenticate(req, res, next) {
   }
 
   // Validate the server-side session still exists & hasn't timed out
-  const session = sessions[decoded.sessionId];
+  let session = sessions[decoded.sessionId];
   if (!session) {
-    return res.status(401).json({ success: false, message: 'SESSION EXPIRED — PLEASE LOG IN AGAIN' });
+    // Fallback: check MongoDB (handles server restarts)
+    const dbSession = await Session.findOne({ sessionId: decoded.sessionId, expiresAt: { $gt: Date.now() } });
+    if (!dbSession) {
+      return res.status(401).json({ success: false, message: 'SESSION EXPIRED — PLEASE LOG IN AGAIN' });
+    }
+    // Restore to memory
+    sessions[decoded.sessionId] = { userId: dbSession.userId, role: dbSession.role, loginTime: dbSession.loginTime, lastActive: Date.now(), expiresAt: dbSession.expiresAt };
+    session = sessions[decoded.sessionId];
   }
 
   // Slide the 30-minute inactivity window
@@ -459,6 +476,8 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       lastActive: Date.now(),
       expiresAt,
     };
+
+    Session.create({ sessionId, userId: user.userId, role: user.role, loginTime: loginTime.toISOString(), lastActive: Date.now(), expiresAt }).catch(() => {});
 
     await User.updateOne({ userId: user.userId }, { status: 'ONLINE' });
     user.status = 'ONLINE';
