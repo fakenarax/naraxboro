@@ -21,6 +21,7 @@ const path          = require('path');
 const fs            = require('fs');
 const crypto        = require('crypto');
 const { v4: uuidv4 }= require('uuid');
+const mongoose      = require('mongoose');
 
 /* ──────────────────────────────────────
    APP INIT
@@ -39,6 +40,47 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 const PORT = process.env.PORT || 3000;
+
+/* ──────────────────────────────────────
+   MONGODB CONNECTION
+─────────────────────────────────────── */
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('[DB] Connected to MongoDB Atlas'))
+  .catch(err => console.error('[DB] Connection failed:', err.message));
+
+/* ──────────────────────────────────────
+   USER MODEL
+─────────────────────────────────────── */
+const userSchema = new mongoose.Schema({
+  userId:       { type: String, required: true, unique: true, lowercase: true },
+  email:        { type: String, required: true, unique: true, lowercase: true },
+  passwordHash: { type: String, required: true, select: false },
+  avatar:       { type: String, default: null },
+  role:         { type: String, enum: ['USER', 'ADMIN'], default: 'USER' },
+  status:       { type: String, enum: ['ONLINE', 'OFFLINE'], default: 'OFFLINE' },
+  joined:       { type: String, default: () => new Date().toISOString().split('T')[0] },
+}, { collection: 'users' });
+
+const User = mongoose.model('User', userSchema);
+
+/* ── Seed primary admin on startup ───────────────────────── */
+(async () => {
+  try {
+    const exists = await User.findOne({ userId: 'narax_admin' });
+    if (!exists) {
+      await User.create({
+        userId:       'narax_admin',
+        email:        'naraxboro@gmail.com',
+        passwordHash: '$2a$08$ZF8nD3MLdvJC/ezcoWHTm.D8cvUv9Xr4tyDETOxRKLj0GiRV5aFsu',
+        role:         'ADMIN',
+        joined:       '2026-01-01',
+      });
+      console.log('[DB] Admin account seeded');
+    }
+  } catch (e) {
+    console.error('[DB] Seed error:', e.message);
+  }
+})();
 
 /* ──────────────────────────────────────
    ★ CONFIGURATION — EDIT THESE VALUES ★
@@ -347,11 +389,10 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
     }
 
     // Uniqueness check — constant-time to prevent user enumeration via timing
-    const userExists  = !!users[userId.toLowerCase()];
-    const emailExists = Object.values(users).some(u => u.email === email.toLowerCase());
-
-    if (userExists || emailExists) {
-      // Delay to prevent timing-based enumeration
+    const existing = await User.findOne({
+      $or: [{ userId: userId.toLowerCase() }, { email: email.toLowerCase() }]
+    });
+    if (existing) {
       await new Promise(r => setTimeout(r, 300 + Math.random() * 200));
       return res.status(409).json({ success: false, message: 'USER ID OR EMAIL ALREADY REGISTERED' });
     }
@@ -359,22 +400,18 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, CONFIG.BCRYPT_ROUNDS);
 
-    // Persist user
-    const newUser = {
-      id:           userId.toLowerCase(),
-      email:        email.toLowerCase(),
+    // Save to MongoDB
+    const newUser = await User.create({
+      userId: userId.toLowerCase(),
+      email:  email.toLowerCase(),
       passwordHash,
-      role:         'USER',  // All registrations start as USER; admin grants via admin panel
-      joined:       new Date().toISOString().split('T')[0],
-      avatar:       null,
-      status:       'OFFLINE',
-    };
-    users[newUser.id] = newUser;
+      role:   'USER',
+    });
 
     return res.status(201).json({
       success: true,
       message: 'ACCOUNT CREATED — PLEASE LOG IN',
-      userId:  newUser.id,
+      userId:  newUser.userId,
     });
 
   } catch (err) {
@@ -396,10 +433,9 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: 'ALL FIELDS REQUIRED' });
     }
 
-    const user = users[userId.toLowerCase()];
+    const user = await User.findOne({ userId: userId.toLowerCase() }).select('+passwordHash');
 
-    // Constant-time rejection — always hash even on miss to prevent timing attacks
-    const dummyHash = '$2a$12$notarealhashjustpaddingtoconstanttime.......';
+    const dummyHash = '$2a$08$notarealhashjustpaddingtoconstanttime.......';
     const hashToCheck = user ? user.passwordHash : dummyHash;
     const match = await bcrypt.compare(password, hashToCheck);
 
@@ -413,17 +449,18 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     const expiresAt = Date.now() + CONFIG.SESSION_EXPIRY_MS;
 
     sessions[sessionId] = {
-      userId:     user.id,
+      userId:   user.userId,
       role:       user.role,
       loginTime:  loginTime.toISOString(),
       lastActive: Date.now(),
       expiresAt,
     };
 
+    await User.updateOne({ userId: user.userId }, { status: 'ONLINE' });
     user.status = 'ONLINE';
 
     const token = jwt.sign(
-      { userId: user.id, role: user.role, sessionId },
+      { userId: user.userId, role: user.role, sessionId },
       CONFIG.JWT_SECRET,
       { expiresIn: CONFIG.JWT_EXPIRES_IN, algorithm: 'HS256' }
     );
@@ -434,7 +471,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       token,
       sessionInfo: {
         sessionId,
-        userId:    user.id,
+        userId:    user.userId,
         role:      user.role,
         authMode:  user.role === 'ADMIN' ? 'ADMIN' : 'USER',
         clearance: user.role === 'ADMIN' ? 'LEVEL 5 — ALPHA' : 'LEVEL 2 — STANDARD',
@@ -552,7 +589,7 @@ app.post('/api/auth/forgot-password', otpLimiter, async (req, res) => {
         otp,
         expiresAt: Date.now() + CONFIG.OTP_EXPIRY_MS,
         purpose:   'reset',
-        userId:    user.id,
+        userId:    user.userId,
       };
      sendOTPEmail(email, otp, 'reset');
     }
@@ -626,14 +663,14 @@ app.post('/api/auth/reset-password', otpLimiter, async (req, res) => {
    POST /api/auth/logout
    Header: Authorization: Bearer <token>
 ─────────────────────────────────────── */
-app.post('/api/auth/logout', authenticate, (req, res) => {
+app.post('/api/auth/logout', authenticate, async (req, res) => {
   const { sessionId, id } = req.user;
 
   // Delete server-side session (token revocation)
   delete sessions[sessionId];
 
   // Mark user offline
-  if (users[id]) users[id].status = 'OFFLINE';
+  await User.updateOne({ userId: id }, { status: 'OFFLINE' });
 
   return res.status(200).json({ success: true, message: 'SESSION TERMINATED' });
 });
@@ -663,12 +700,10 @@ app.get('/api/auth/session', authenticate, (req, res) => {
 /* ──────────────────────────────────────
    GET /api/profile
 ─────────────────────────────────────── */
-app.get('/api/profile', authenticate, (req, res) => {
-  const user = users[req.user.id];
+app.get('/api/profile', authenticate, async (req, res) => {
+  const user = await User.findOne({ userId: req.user.id });
   if (!user) return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
-
-  const { passwordHash, ...safeUser } = user;
-  return res.status(200).json({ success: true, profile: safeUser });
+  return res.status(200).json({ success: true, profile: user.toObject() });
 });
 
 /* ──────────────────────────────────────
@@ -704,7 +739,7 @@ app.post('/api/profile/avatar', authenticate, uploadAvatar.single('avatar'), (re
    Body: { base64: "data:image/png;base64,..." }
    Stores the raw base64 string (no disk write)
 ─────────────────────────────────────── */
-app.post('/api/profile/avatar-base64', authenticate, (req, res) => {
+app.post('/api/profile/avatar-base64', authenticate, async (req, res) => {
   const { base64 } = req.body;
 
   if (!base64 || typeof base64 !== 'string') {
@@ -717,10 +752,7 @@ app.post('/api/profile/avatar-base64', authenticate, (req, res) => {
     return res.status(413).json({ success: false, message: 'IMAGE TOO LARGE' });
   }
 
-  const user = users[req.user.id];
-  if (!user) return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
-
-  user.avatar = base64;
+  await User.updateOne({ userId: req.user.id }, { avatar: base64 });
 
   return res.status(200).json({ success: true, message: 'OPERATOR PHOTO UPDATED' });
 });
@@ -733,9 +765,9 @@ app.post('/api/profile/avatar-base64', authenticate, (req, res) => {
    GET /api/admin/users
    Returns full user list (no hashes)
 ─────────────────────────────────────── */
-app.get('/api/admin/users', authenticate, requireAdmin, (req, res) => {
-  const userList = Object.values(users).map(({ passwordHash, ...u }) => u);
-  return res.status(200).json({ success: true, users: userList });
+app.get('/api/admin/users', authenticate, requireAdmin, async (req, res) => {
+  const userList = await User.find({}).lean();
+  return res.status(200).json({ success: true, users: userList.map(u => ({ ...u, id: u.userId })) });
 });
 
 /* ──────────────────────────────────────
@@ -750,15 +782,30 @@ app.patch('/api/admin/users/:userId/role', authenticate, requireAdmin, (req, res
     return res.status(400).json({ success: false, message: 'ROLE MUST BE ADMIN OR USER' });
   }
 
-  const target = users[targetId.toLowerCase()];
-  if (!target) {
-    return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
-  }
+  app.patch('/api/admin/users/:userId/role', authenticate, requireAdmin, async (req, res) => {
+  const targetId = sanitize(req.params.userId || '');
+  const role     = sanitize(req.body.role     || '');
 
-  // Primary admin is untouchable by anyone
-  if (target.id === 'narax_admin') {
+  if (!['ADMIN', 'USER'].includes(role)) {
+    return res.status(400).json({ success: false, message: 'ROLE MUST BE ADMIN OR USER' });
+  }
+  if (targetId === 'narax_admin') {
     return res.status(403).json({ success: false, message: 'PRIMARY ADMIN CANNOT BE MODIFIED' });
   }
+  if (targetId === req.user.id && role !== 'ADMIN') {
+    return res.status(403).json({ success: false, message: 'CANNOT REVOKE YOUR OWN ADMIN CLEARANCE' });
+  }
+
+  const target = await User.findOne({ userId: targetId.toLowerCase() });
+  if (!target) return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
+
+  await User.updateOne({ userId: targetId.toLowerCase() }, { role });
+
+  return res.status(200).json({
+    success: true,
+    message: role === 'ADMIN' ? `${targetId} PROMOTED TO ADMIN` : `${targetId} CLEARANCE REVOKED`,
+  });
+});
 
   // Prevent self-demotion
   if (target.id === req.user.id && role !== 'ADMIN') {
@@ -778,38 +825,32 @@ app.patch('/api/admin/users/:userId/role', authenticate, requireAdmin, (req, res
 /* ──────────────────────────────────────
    DELETE /api/admin/users/:userId
 ─────────────────────────────────────── */
-app.delete('/api/admin/users/:userId', authenticate, requireAdmin, (req, res) => {
+app.delete('/api/admin/users/:userId', authenticate, requireAdmin, async (req, res) => {
   const targetId = sanitize(req.params.userId || '');
-  const target   = users[targetId.toLowerCase()];
 
-  if (!target) {
-    return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
-  }
-  // Cannot delete yourself
-  if (target.id === req.user.id) {
+  if (targetId === req.user.id) {
     return res.status(403).json({ success: false, message: 'CANNOT DELETE YOUR OWN ACCOUNT' });
   }
-
-  // Primary admin cannot be deleted by anyone
-  if (target.id === 'narax_admin') {
+  if (targetId === 'narax_admin') {
     return res.status(403).json({ success: false, message: 'PRIMARY ADMIN CANNOT BE DELETED' });
   }
 
-  // Only primary admin can delete other admins
+  const target = await User.findOne({ userId: targetId.toLowerCase() });
+  if (!target) return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
+
   if (target.role === 'ADMIN' && req.user.id !== 'narax_admin') {
     return res.status(403).json({ success: false, message: 'ONLY PRIMARY ADMIN CAN DELETE ADMINS' });
   }
 
-  // Invalidate all sessions for the deleted user
   for (const [sid, sess] of Object.entries(sessions)) {
-    if (sess.userId === target.id) delete sessions[sid];
+    if (sess.userId === targetId) delete sessions[sid];
   }
 
-  delete users[target.id];
+  await User.deleteOne({ userId: targetId.toLowerCase() });
 
   return res.status(200).json({
     success: true,
-    message: `USER ${target.id.toUpperCase()} DELETED FROM REGISTRY`,
+    message: `USER ${targetId.toUpperCase()} DELETED FROM REGISTRY`,
   });
 });
 
