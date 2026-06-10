@@ -774,53 +774,33 @@ app.get('/api/admin/users', authenticate, requireAdmin, async (req, res) => {
    PATCH /api/admin/users/:userId/role
    Body: { role: 'ADMIN' | 'USER' }
 ─────────────────────────────────────── */
-app.patch('/api/admin/users/:userId/role', authenticate, requireAdmin, (req, res) => {
+app.patch('/api/admin/users/:userId/role', authenticate, requireAdmin, async (req, res) => {
   const targetId = sanitize(req.params.userId || '');
   const role     = sanitize(req.body.role     || '');
-
+ 
   if (!['ADMIN', 'USER'].includes(role)) {
     return res.status(400).json({ success: false, message: 'ROLE MUST BE ADMIN OR USER' });
   }
-
-  app.patch('/api/admin/users/:userId/role', authenticate, requireAdmin, async (req, res) => {
-  const targetId = sanitize(req.params.userId || '');
-  const role     = sanitize(req.body.role     || '');
-
-  if (!['ADMIN', 'USER'].includes(role)) {
-    return res.status(400).json({ success: false, message: 'ROLE MUST BE ADMIN OR USER' });
+ 
+  const target = users[targetId.toLowerCase()];
+  if (!target) {
+    return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
   }
-  if (targetId === 'narax_admin') {
-    return res.status(403).json({ success: false, message: 'PRIMARY ADMIN CANNOT BE MODIFIED' });
-  }
-  if (targetId === req.user.id && role !== 'ADMIN') {
-    return res.status(403).json({ success: false, message: 'CANNOT REVOKE YOUR OWN ADMIN CLEARANCE' });
-  }
-
-  const target = await User.findOne({ userId: targetId.toLowerCase() });
-  if (!target) return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
-
-  await User.updateOne({ userId: targetId.toLowerCase() }, { role });
-
-  return res.status(200).json({
-    success: true,
-    message: role === 'ADMIN' ? `${targetId} PROMOTED TO ADMIN` : `${targetId} CLEARANCE REVOKED`,
-  });
-});
-
+ 
   // Prevent self-demotion
   if (target.id === req.user.id && role !== 'ADMIN') {
     return res.status(403).json({ success: false, message: 'CANNOT REVOKE YOUR OWN ADMIN CLEARANCE' });
   }
-
+ 
   target.role = role;
-
+ 
   return res.status(200).json({
     success: true,
     message: role === 'ADMIN'
       ? `${target.id} PROMOTED TO ADMIN`
       : `${target.id} CLEARANCE REVOKED`,
   });
-});
+})
 
 /* ──────────────────────────────────────
    DELETE /api/admin/users/:userId
