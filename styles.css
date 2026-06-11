@@ -580,7 +580,7 @@ input:checked + .slider::before { transform: translateX(22px); background: var(-
   letter-spacing: 0.1em; color: var(--text-dim);
   display: flex; justify-content: space-between;
 }
-.threat-bar-wrap {}
+.threat-bar-wrap
 .threat-bar {
   height: 6px; background: var(--bg4);
   border-radius: 3px; overflow: hidden;
