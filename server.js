@@ -155,9 +155,9 @@ const otpStore = {};
    NODEMAILER TRANSPORTER
 ─────────────────────────────────────── */
 
-const Brevo = require('@getbrevo/brevo');
-const brevoApi = new Brevo.TransactionalEmailsApi();
-brevoApi.authentications['apiKey'].apiKey = process.env.BREVO_API_KEY;
+const SibApiV3Sdk = require('@getbrevo/brevo');
+const brevoApi = new SibApiV3Sdk.TransactionalEmailsApi();
+brevoApi.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
 
 /* ──────────────────────────────────────
    MULTER — AVATAR STORAGE
