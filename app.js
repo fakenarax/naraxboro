@@ -293,29 +293,18 @@ async function handleForgot(e) {
   if (!email) { showToast('ENTER REGISTERED EMAIL', 'error'); return; }
 
   setFormLoading('form-forgot', true);
-  showToast('TRANSMITTING RECOVERY CIPHER…', 'info');
+  showToast('TRANSMITTING RECOVERY LINK…', 'info');
 
   try {
-    const { ok, data } = await apiFetch('/api/auth/forgot-password', {
+    const { data } = await apiFetch('/api/auth/forgot-password', {
       method: 'POST',
       body:   JSON.stringify({ email }),
     });
 
-    // Backend always returns 200 to prevent email enumeration
-    showToast(data.message || 'RECOVERY CIPHER TRANSMITTED', 'success');
-
-    if (ok) {
-      state.pendingResetEmail = email;
-      state.pendingPurpose    = 'reset';
-      // Switch to OTP view for reset
-      setTimeout(() => {
-        showView('view-2fa');
-        start2FATimer();
-        // Update the 2FA screen label to indicate it's a reset
-        const sub = document.getElementById('tfaSub');
-        if (sub) sub.textContent = 'ENTER RESET CIPHER TRANSMITTED TO ' + email.slice(0, 4) + '***';
-      }, 900);
-    }
+    showToast(data.message || 'RECOVERY LINK TRANSMITTED', 'success');
+    document.getElementById('forgot-email').value = '';
+    const msg = document.getElementById('forgot-sent-msg');
+    if (msg) msg.style.display = 'block';
 
   } catch {
     showToast('CONNECTION ERROR — CHECK SERVER', 'error');

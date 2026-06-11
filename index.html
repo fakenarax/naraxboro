@@ -163,26 +163,13 @@
         </div>
       </div>
       <button type="submit" class="btn-primary">
-        <span class="btn-text">TRANSMIT RECOVERY CODE</span>
+        <span class="btn-text">TRANSMIT RECOVERY LINK</span>
         <span class="btn-glow"></span>
       </button>
     </form>
-    <div class="divider"><span>OR VERIFY IDENTITY</span></div>
-    <div class="otp-section">
-      <p class="view-desc">Enter the 6-digit OTP sent to your device.</p>
-      <div class="otp-grid" id="otpGrid">
-        <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove(this, 0)"/>
-        <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove(this, 1)"/>
-        <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove(this, 2)"/>
-        <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove(this, 3)"/>
-        <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove(this, 4)"/>
-        <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove(this, 5)"/>
-      </div>
-      <button class="btn-primary" onclick="verify2FA()">
-        <span class="btn-text">VERIFY & PROCEED</span>
-        <span class="btn-glow"></span>
-      </button>
-    </div>
+    <p id="forgot-sent-msg" style="display:none;color:var(--cyan);font-family:var(--font-mono);font-size:11px;letter-spacing:2px;text-align:center;margin-top:16px">
+      ✓ IF REGISTERED, A RECOVERY LINK WAS SENT — CHECK YOUR INBOX
+    </p>
     <div class="auth-footer">
       <span class="watermark">MADE BY NARAX</span>
     </div>
