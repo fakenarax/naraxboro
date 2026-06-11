@@ -352,7 +352,7 @@ async function sendOTPEmail(toEmail, otp, purpose) {
     ? 'Narax — Password Reset Code'
     : 'Narax — Two-Factor Authentication Code';
 
-  const email = new Brevo.SendSmtpEmail();
+  const email = new SibApiV3Sdk.SendSmtpEmail();
   email.sender      = { name: 'Narax', email: process.env.EMAIL_USER };
   email.to          = [{ email: toEmail }];
   email.subject     = subject;
@@ -372,7 +372,7 @@ async function sendOTPEmail(toEmail, otp, purpose) {
 }
 
 async function sendResetLinkEmail(toEmail, resetLink) {
-  const email = new Brevo.SendSmtpEmail();
+  const email = new SibApiV3Sdk.SendSmtpEmail();
   email.sender      = { name: 'Narax', email: process.env.EMAIL_USER };
   email.to          = [{ email: toEmail }];
   email.subject     = 'Narax — Access Key Recovery Link';
