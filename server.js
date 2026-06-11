@@ -156,12 +156,18 @@ const otpStore = {};
 
 const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
-  host: 'smtp-relay.brevo.com',
-  port: 587,
+  host:   process.env.EMAIL_HOST,
+  port:   Number(process.env.EMAIL_PORT),
+  secure: false,
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.BREVO_SMTP_KEY,
+    pass: process.env.EMAIL_PASS,
   },
+});
+
+transporter.verify((err) => {
+  if (err) console.error('[SMTP] FAILED:', err.message);
+  else     console.log('[SMTP] Ready');
 });
 
 /* ──────────────────────────────────────
