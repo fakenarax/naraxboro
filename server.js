@@ -155,8 +155,15 @@ const otpStore = {};
    NODEMAILER TRANSPORTER
 ─────────────────────────────────────── */
 
-const { Resend } = require('resend');
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transporter = nodemailer.createTransport({
+  host:   process.env.EMAIL_HOST || 'smtp.gmail.com',
+  port:   Number(process.env.EMAIL_PORT) || 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 /* ──────────────────────────────────────
    MULTER — AVATAR STORAGE
@@ -365,8 +372,8 @@ async function sendOTPEmail(toEmail, otp, purpose) {
     </div>
   `;
 
-  await resend.emails.send({
-    from:    'Narax <onboarding@resend.dev>',
+  await transporter.sendMail({
+    from:    `"Narax" <${process.env.EMAIL_USER}>`,
     to:      toEmail,
     subject,
     html,
@@ -387,8 +394,8 @@ async function sendResetLinkEmail(toEmail, resetLink) {
       <p style="color:#555;font-size:10px;margin:0">If you did not request this, ignore this message. © Narax Security Terminal</p>
     </div>
   `;
-  await resend.emails.send({
-    from:    'Narax <onboarding@resend.dev>',
+  await transporter.sendMail({
+    from:    `"Narax" <${process.env.EMAIL_USER}>`,
     to:      toEmail,
     subject: 'Narax — Access Key Recovery Link',
     html,
