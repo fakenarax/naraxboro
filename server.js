@@ -15,7 +15,6 @@ const helmet        = require('helmet');
 const rateLimit     = require('express-rate-limit');
 const bcrypt        = require('bcryptjs');
 const jwt           = require('jsonwebtoken');
-const nodemailer    = require('nodemailer');
 const multer        = require('multer');
 const path          = require('path');
 const fs            = require('fs');
