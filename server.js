@@ -63,6 +63,8 @@ const userSchema = new mongoose.Schema({
   role:         { type: String, enum: ['USER', 'ADMIN'], default: 'USER' },
   status:       { type: String, enum: ['ONLINE', 'OFFLINE'], default: 'OFFLINE' },
   joined:       { type: String, default: () => new Date().toISOString().split('T')[0] },
+  resetToken:   { type: String, default: null },  // ← ADD
+  resetExpiry:  { type: Number, default: null },  // ← ADD
 }, { collection: 'users' });
 
 const User = mongoose.model('User', userSchema);
@@ -112,7 +114,7 @@ const CONFIG = {
 
   // ── UPLOADS ───────────────────────────────────────────────────
   AVATAR_UPLOAD_DIR:   path.join(__dirname, 'uploads', 'avatars'),
-  AVATAR_MAX_SIZE_MB:  2,
+  AVATAR_MAX_SIZE_MB:  3,
 };
 
 /* ──────────────────────────────────────
@@ -377,6 +379,28 @@ async function sendOTPEmail(toEmail, otp, purpose) {
   });
 }
 
+async function sendResetLinkEmail(toEmail, resetLink) {
+  const html = `
+    <div style="font-family:monospace;background:#0a0a0f;color:#00e5ff;padding:32px;border:1px solid #00e5ff22;border-radius:8px;max-width:480px;margin:auto">
+      <h2 style="color:#00e5ff;letter-spacing:4px;margin-top:0">NARAX SECURITY</h2>
+      <p style="color:#aaa;font-size:13px;letter-spacing:2px">PASSWORD RECOVERY</p>
+      <p style="color:#ccc;font-size:13px;line-height:1.6">A key recovery was requested for your account.<br>Click below to set a new access key. This link expires in <b style="color:#fff">1 hour</b>.</p>
+      <div style="text-align:center;margin:28px 0">
+        <a href="${resetLink}" style="background:#00e5ff;color:#0a0a0f;text-decoration:none;padding:14px 32px;border-radius:4px;font-weight:bold;letter-spacing:3px;font-size:13px;display:inline-block">RESET ACCESS KEY</a>
+      </div>
+      <p style="color:#555;font-size:11px;word-break:break-all">${resetLink}</p>
+      <hr style="border-color:#222;margin-top:24px">
+      <p style="color:#555;font-size:10px;margin:0">If you did not request this, ignore this message. © Narax Security Terminal</p>
+    </div>
+  `;
+  await transporter.sendMail({
+    from:    `"${CONFIG.EMAIL_FROM_NAME}" <${CONFIG.EMAIL_FROM_ADDRESS}>`,
+    to:      toEmail,
+    subject: 'Narax — Access Key Recovery Link',
+    html,
+  });
+}
+
 /* ══════════════════════════════════════════════════════════════
    ROUTES
    ══════════════════════════════════════════════════════════════ */
@@ -598,28 +622,23 @@ app.post('/api/auth/verify-otp', authLimiter, async (req, res) => {
 app.post('/api/auth/forgot-password', otpLimiter, async (req, res) => {
   try {
     const email = sanitize(req.body.email || '').toLowerCase();
-
     if (!email || !isValidEmail(email)) {
       return res.status(400).json({ success: false, message: 'VALID EMAIL REQUIRED' });
     }
 
-    // Always respond the same way to prevent email enumeration
-    const user = Object.values(users).find(u => u.email === email);
+    const user = await User.findOne({ email });
 
     if (user) {
-      const otp = generateOTP();
-      otpStore[email] = {
-        otp,
-        expiresAt: Date.now() + CONFIG.OTP_EXPIRY_MS,
-        purpose:   'reset',
-        userId:    user.userId,
-      };
-     sendOTPEmail(email, otp, 'reset');
+      const resetToken  = crypto.randomBytes(32).toString('hex');
+      const resetExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
+      await User.updateOne({ email }, { resetToken, resetExpiry });
+      const resetLink = `https://naraxboro.netlify.app/reset-password.html?token=${resetToken}`;
+      await sendResetLinkEmail(email, resetLink);
     }
 
     return res.status(200).json({
       success: true,
-      message: 'IF THAT EMAIL IS REGISTERED, A RECOVERY CIPHER HAS BEEN TRANSMITTED',
+      message: 'IF THAT EMAIL IS REGISTERED, A RESET LINK HAS BEEN TRANSMITTED',
     });
 
   } catch (err) {
@@ -634,47 +653,33 @@ app.post('/api/auth/forgot-password', otpLimiter, async (req, res) => {
 ─────────────────────────────────────── */
 app.post('/api/auth/reset-password', otpLimiter, async (req, res) => {
   try {
-    const email       = sanitize(req.body.email       || '').toLowerCase();
-    const otp         = sanitize(req.body.otp         || '');
+    const token       = sanitize(req.body.token       || '');
     const newPassword = String(req.body.newPassword   || '');
 
-    if (!email || !otp || !newPassword) {
+    if (!token || !newPassword) {
       return res.status(400).json({ success: false, message: 'ALL FIELDS REQUIRED' });
-    }
-    if (!/^\d{6}$/.test(otp)) {
-      return res.status(400).json({ success: false, message: 'INVALID OTP FORMAT' });
     }
     if (newPassword.length < 8) {
       return res.status(400).json({ success: false, message: 'PASSWORD MINIMUM 8 CHARACTERS' });
     }
 
-    const record = otpStore[email];
-    if (!record || record.purpose !== 'reset') {
-      return res.status(401).json({ success: false, message: 'NO RESET OTP ON FILE' });
-    }
-    if (Date.now() > record.expiresAt) {
-      delete otpStore[email];
-      return res.status(401).json({ success: false, message: 'OTP EXPIRED' });
-    }
-    if (record.otp !== otp) {
-      return res.status(401).json({ success: false, message: 'INVALID OTP' });
+    const user = await User.findOne({ resetToken: token }).select('+passwordHash');
+
+    if (!user || !user.resetExpiry || Date.now() > user.resetExpiry) {
+      return res.status(401).json({ success: false, message: 'RESET LINK INVALID OR EXPIRED' });
     }
 
-    const user = users[record.userId];
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
-    }
+    const passwordHash = await bcrypt.hash(newPassword, CONFIG.BCRYPT_ROUNDS);
+    await User.updateOne(
+      { _id: user._id },
+      { passwordHash, $unset: { resetToken: '', resetExpiry: '' } }
+    );
 
-    delete otpStore[email];
-
-    user.passwordHash = await bcrypt.hash(newPassword, CONFIG.BCRYPT_ROUNDS);
-
-    // Invalidate all existing sessions for this user
     for (const [sid, sess] of Object.entries(sessions)) {
-      if (sess.userId === user.id) delete sessions[sid];
+      if (sess.userId === user.userId) delete sessions[sid];
     }
 
-    return res.status(200).json({ success: true, message: 'PASSWORD UPDATED — PLEASE LOG IN' });
+    return res.status(200).json({ success: true, message: 'ACCESS KEY UPDATED — PLEASE LOG IN' });
 
   } catch (err) {
     console.error('[RESET-PASSWORD ERROR]', err.message);
@@ -738,10 +743,14 @@ app.post('/api/profile/avatar', authenticate, uploadAvatar.single('avatar'), asy
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'NO FILE UPLOADED' });
   }
-  const avatarUrl = `/avatars/${req.file.filename}`;
-  await User.updateOne({ userId: req.user.id }, { avatar: avatarUrl });
-  return res.status(200).json({ success: true, message: 'OPERATOR PHOTO UPDATED', avatarUrl });
-});
+  // Read file from disk, convert to base64, then delete the temp file
+  const fileBuffer = fs.readFileSync(req.file.path);
+  const mimeType   = req.file.mimetype || 'image/jpeg';
+  const base64     = `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
+  fs.unlink(req.file.path, () => {}); // delete temp file
+  await User.updateOne({ userId: req.user.id }, { avatar: base64 });
+  return res.status(200).json({ success: true, message: 'OPERATOR PHOTO UPDATED', avatarUrl: base64 });
+});;
 
 /* ──────────────────────────────────────
    POST /api/profile/avatar-base64
@@ -757,7 +766,7 @@ app.post('/api/profile/avatar-base64', authenticate, async (req, res) => {
   if (!base64.startsWith('data:image/')) {
     return res.status(400).json({ success: false, message: 'INVALID IMAGE FORMAT' });
   }
-  if (Buffer.byteLength(base64, 'utf8') > CONFIG.AVATAR_MAX_SIZE_MB * 1024 * 1024 * 1.4) {
+  if (Buffer.byteLength(base64, 'utf8') > 5 * 1024 * 1024) {
     return res.status(413).json({ success: false, message: 'IMAGE TOO LARGE' });
   }
 
