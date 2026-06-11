@@ -393,6 +393,7 @@ async function sendResetLinkEmail(toEmail, resetLink) {
     subject: 'Narax — Access Key Recovery Link',
     html,
   });
+}
 
 /* ══════════════════════════════════════════════════════════════
    ROUTES
