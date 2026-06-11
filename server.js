@@ -154,9 +154,15 @@ const otpStore = {};
    NODEMAILER TRANSPORTER
 ─────────────────────────────────────── */
 
-const SibApiV3Sdk = require('@getbrevo/brevo');
-const brevoApi = new SibApiV3Sdk.TransactionalEmailsApi();
-brevoApi.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
+const nodemailer = require('nodemailer');
+const transporter = nodemailer.createTransport({
+  host: 'smtp-relay.brevo.com',
+  port: 587,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.BREVO_SMTP_KEY,
+  },
+});
 
 /* ──────────────────────────────────────
    MULTER — AVATAR STORAGE
@@ -351,11 +357,11 @@ async function sendOTPEmail(toEmail, otp, purpose) {
     ? 'Narax — Password Reset Code'
     : 'Narax — Two-Factor Authentication Code';
 
-  const email = new SibApiV3Sdk.SendSmtpEmail();
-  email.sender      = { name: 'Narax', email: process.env.EMAIL_USER };
-  email.to          = [{ email: toEmail }];
-  email.subject     = subject;
-  email.htmlContent = `
+  await transporter.sendMail({
+    from: '"Narax" <' + process.env.EMAIL_USER + '>',
+    to: toEmail,
+    subject,
+    html: `
     <div style="font-family:monospace;background:#0a0a0f;color:#00ffcc;padding:32px;border:1px solid #00ffcc22;border-radius:8px;max-width:480px;margin:auto">
       <h2 style="color:#00ffcc;letter-spacing:4px;margin-top:0">NARAX SECURITY</h2>
       <p style="color:#aaa;font-size:13px;letter-spacing:2px">${purpose === 'reset' ? 'PASSWORD RESET' : 'TWO-FACTOR AUTH'}</p>
@@ -366,16 +372,16 @@ async function sendOTPEmail(toEmail, otp, purpose) {
       If you did not request this, ignore this message immediately.</p>
       <hr style="border-color:#222;margin-top:24px">
       <p style="color:#555;font-size:10px;margin:0">© Narax Security Terminal — Automated Message</p>
-    </div>`;
-  await brevoApi.sendTransacEmail(email);
+    </div>`,
+  });
 }
 
 async function sendResetLinkEmail(toEmail, resetLink) {
-  const email = new SibApiV3Sdk.SendSmtpEmail();
-  email.sender      = { name: 'Narax', email: process.env.EMAIL_USER };
-  email.to          = [{ email: toEmail }];
-  email.subject     = 'Narax — Access Key Recovery Link';
-  email.htmlContent = `
+  await transporter.sendMail({
+    from: '"Narax" <' + process.env.EMAIL_USER + '>',
+    to: toEmail,
+    subject: 'Narax — Access Key Recovery Link',
+    html: `
     <div style="font-family:monospace;background:#0a0a0f;color:#00e5ff;padding:32px;border:1px solid #00e5ff22;border-radius:8px;max-width:480px;margin:auto">
       <h2 style="color:#00e5ff;letter-spacing:4px;margin-top:0">NARAX SECURITY</h2>
       <p style="color:#aaa;font-size:13px;letter-spacing:2px">PASSWORD RECOVERY</p>
@@ -386,8 +392,8 @@ async function sendResetLinkEmail(toEmail, resetLink) {
       <p style="color:#555;font-size:11px;word-break:break-all">${resetLink}</p>
       <hr style="border-color:#222;margin-top:24px">
       <p style="color:#555;font-size:10px;margin:0">© Narax Security Terminal</p>
-    </div>`;
-  await brevoApi.sendTransacEmail(email);
+    </div>`,
+  });
 }
 
 /* ══════════════════════════════════════════════════════════════
