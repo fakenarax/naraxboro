@@ -731,14 +731,14 @@ function renderTable() {
     const isCurrentUser = user.id === state.currentUser;
     tr.innerHTML = `
       <td style="color:var(--cyan);font-family:var(--font-mono)">${user.id}${isCurrentUser ? ' <span style="color:var(--green);font-size:0.55rem">[YOU]</span>' : ''}</td>
-      <td>${user.email}</td>
+      <td>${user.id === 'narax_admin' ? '♛ ' : ''}${user.email}</td>
       <td><span class="badge ${user.role === 'ADMIN' ? 'admin' : 'user'}">${user.role}</span></td>
       <td><span class="badge ${user.status === 'ONLINE' ? 'online' : 'offline'}">${user.status}</span></td>
       <td style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-dim)">${user.joined || ''}</td>
       <td>
         <div class="action-btns">
           ${user.role !== 'ADMIN' ? `<button class="action-btn promote" onclick="promoteUser('${user.id}')">MAKE ADMIN</button>` : ''}
-          ${user.role === 'ADMIN' && !isCurrentUser ? `<button class="action-btn demote" onclick="demoteUser('${user.id}')">REMOVE ADMIN</button>` : ''}
+          ${user.role === 'ADMIN' && !isCurrentUser && user.id !== 'narax_admin' ? `<button class="action-btn demote" onclick="demoteUser('${user.id}')">REMOVE ADMIN</button>` : ''}
           ${!isCurrentUser ? `<button class="action-btn delete" onclick="deleteUser('${user.id}')">DELETE</button>` : ''}
         </div>
       </td>
