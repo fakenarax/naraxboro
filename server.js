@@ -365,7 +365,7 @@ async function sendOTPEmail(toEmail, otp, purpose) {
 
   await mailjet.post('send', { version: 'v3.1' }).request({
     Messages: [{
-      From: { Email: 'susnarax@gmail.com', Name: 'Narax' },
+      From: { Email: process.env.MJ_SENDER_EMAIL, Name: 'Narax Security · No Reply' },
       To:   [{ Email: toEmail }],
       Subject: subject,
       HTMLPart: `
@@ -387,7 +387,7 @@ async function sendOTPEmail(toEmail, otp, purpose) {
 async function sendResetLinkEmail(toEmail, resetLink) {
   await mailjet.post('send', { version: 'v3.1' }).request({
     Messages: [{
-      From: { Email: 'susnarax@gmail.com', Name: 'Narax' },
+      From: { Email: process.env.MJ_SENDER_EMAIL, Name: 'Narax Security · No Reply' },
       To:   [{ Email: toEmail }],
       Subject: 'Narax — Access Key Recovery Link',
       HTMLPart: `
