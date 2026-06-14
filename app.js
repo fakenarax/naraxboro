@@ -730,8 +730,8 @@ function renderTable() {
     const tr = document.createElement('tr');
     const isCurrentUser = user.id === state.currentUser;
     tr.innerHTML = `
-      <td style="color:var(--cyan);font-family:var(--font-mono)">${user.id}${isCurrentUser ? ' <span style="color:var(--green);font-size:0.55rem">[YOU]</span>' : ''}</td>
-      <td>${user.id === 'narax_admin' ? '♛ ' : ''}${user.email}</td>
+      <td style="color:var(--cyan);font-family:var(--font-mono)">${user.id === 'narax_admin' ? '♛ ' : ''}${user.id}${isCurrentUser ? ' <span style="color:var(--green);font-size:0.55rem">[YOU]</span>' : ''}</td>
+      <td>${user.email}</td>
       <td><span class="badge ${user.role === 'ADMIN' ? 'admin' : 'user'}">${user.role}</span></td>
       <td><span class="badge ${user.status === 'ONLINE' ? 'online' : 'offline'}">${user.status}</span></td>
       <td style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-dim)">${user.joined || ''}</td>
