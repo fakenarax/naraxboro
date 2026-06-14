@@ -374,22 +374,24 @@ async function sendOTPEmail(toEmail, otp, purpose) {
 }
 
 async function sendResetLinkEmail(toEmail, resetLink) {
-  await transporter.sendMail({
-    from: '"Narax" <' + process.env.EMAIL_USER + '>',
-    to: toEmail,
-    subject: 'Narax — Access Key Recovery Link',
-    html: `
-    <div style="font-family:monospace;background:#0a0a0f;color:#00e5ff;padding:32px;border:1px solid #00e5ff22;border-radius:8px;max-width:480px;margin:auto">
-      <h2 style="color:#00e5ff;letter-spacing:4px;margin-top:0">NARAX SECURITY</h2>
-      <p style="color:#aaa;font-size:13px;letter-spacing:2px">PASSWORD RECOVERY</p>
-      <p style="color:#ccc;font-size:13px;line-height:1.6">A key recovery was requested.<br>Click below to set a new access key. Expires in <b style="color:#fff">1 hour</b>.</p>
-      <div style="text-align:center;margin:28px 0">
-        <a href="${resetLink}" style="background:#00e5ff;color:#0a0a0f;text-decoration:none;padding:14px 32px;border-radius:4px;font-weight:bold;letter-spacing:3px;font-size:13px;display:inline-block">RESET ACCESS KEY</a>
-      </div>
-      <p style="color:#555;font-size:11px;word-break:break-all">${resetLink}</p>
-      <hr style="border-color:#222;margin-top:24px">
-      <p style="color:#555;font-size:10px;margin:0">© Narax Security Terminal</p>
-    </div>`,
+  await mailjet.post('send', { version: 'v3.1' }).request({
+    Messages: [{
+      From: { Email: 'susnarax@gmail.com', Name: 'Narax' },
+      To:   [{ Email: toEmail }],
+      Subject: 'Narax — Access Key Recovery Link',
+      HTMLBody: `
+      <div style="font-family:monospace;background:#0a0a0f;color:#00e5ff;padding:32px;border:1px solid #00e5ff22;border-radius:8px;max-width:480px;margin:auto">
+        <h2 style="color:#00e5ff;letter-spacing:4px;margin-top:0">NARAX SECURITY</h2>
+        <p style="color:#aaa;font-size:13px;letter-spacing:2px">PASSWORD RECOVERY</p>
+        <p style="color:#ccc;font-size:13px;line-height:1.6">A key recovery was requested.<br>Click below to set a new access key. Expires in <b style="color:#fff">1 hour</b>.</p>
+        <div style="text-align:center;margin:28px 0">
+          <a href="${resetLink}" style="background:#00e5ff;color:#0a0a0f;text-decoration:none;padding:14px 32px;border-radius:4px;font-weight:bold;letter-spacing:3px;font-size:13px;display:inline-block">RESET ACCESS KEY</a>
+        </div>
+        <p style="color:#555;font-size:11px;word-break:break-all">${resetLink}</p>
+        <hr style="border-color:#222;margin-top:24px">
+        <p style="color:#555;font-size:10px;margin:0">© Narax Security Terminal</p>
+      </div>`
+    }]
   });
 }
 
