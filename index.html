@@ -177,35 +177,28 @@
 </div>
 
 <!-- ═══════════════════════════════════════════
-     VIEW: 2FA CHALLENGE
+     VIEW: EMAIL VERIFICATION
 ═══════════════════════════════════════════ -->
-<div class="view" id="view-2fa">
+<div class="view" id="view-verify-email">
   <div class="auth-shell compact">
     <div class="view-header">
-      <h2 class="view-title">TWO-FACTOR AUTHENTICATION</h2>
+      <h2 class="view-title">VERIFY EMAIL</h2>
     </div>
-    <div class="tfa-icon">
-      <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
-        <circle cx="28" cy="28" r="26" stroke="var(--cyan)" stroke-width="1" stroke-dasharray="4 3"/>
-        <circle cx="28" cy="28" r="18" stroke="var(--purple)" stroke-width="1"/>
-        <path d="M20 26h16M28 18v20" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-    </div>
-    <p class="view-desc">A one-time cipher has been dispatched. Enter it below to complete authentication.</p>
-    <div class="otp-grid" id="otpGrid2fa">
-      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove2fa(this, 0)"/>
-      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove2fa(this, 1)"/>
-      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove2fa(this, 2)"/>
-      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove2fa(this, 3)"/>
-      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove2fa(this, 4)"/>
-      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMove2fa(this, 5)"/>
+    <p class="view-desc">A 6-digit verification code was sent to your email. Enter it below to activate your account.</p>
+    <div class="otp-grid" id="otpGridVerify">
+      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMoveVerify(this,0)"/>
+      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMoveVerify(this,1)"/>
+      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMoveVerify(this,2)"/>
+      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMoveVerify(this,3)"/>
+      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMoveVerify(this,4)"/>
+      <input class="otp-input" maxlength="1" type="text" inputmode="numeric" oninput="otpMoveVerify(this,5)"/>
     </div>
     <div class="otp-timer">
       <span>CODE EXPIRES IN: </span>
-      <span class="otp-countdown" id="otpCountdown">05:00</span>
+      <span class="otp-countdown">05:00</span>
     </div>
-    <button class="btn-primary" onclick="verify2FA()">
-      <span class="btn-text">CONFIRM IDENTITY</span>
+    <button class="btn-primary" onclick="handleVerifyEmail()">
+      <span class="btn-text">VERIFY ACCOUNT</span>
       <span class="btn-glow"></span>
     </button>
     <div class="auth-footer">

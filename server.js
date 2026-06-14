@@ -62,8 +62,9 @@ const userSchema = new mongoose.Schema({
   role:         { type: String, enum: ['USER', 'ADMIN'], default: 'USER' },
   status:       { type: String, enum: ['ONLINE', 'OFFLINE'], default: 'OFFLINE' },
   joined:       { type: String, default: () => new Date().toISOString().split('T')[0] },
-  resetToken:   { type: String, default: null },  // ← ADD
-  resetExpiry:  { type: Number, default: null },  // ← ADD
+  resetToken:   { type: String, default: null },
+  resetExpiry:  { type: Number, default: null },
+  isVerified:   { type: Boolean, default: false },
 }, { collection: 'users' });
 
 const User = mongoose.model('User', userSchema);
@@ -350,26 +351,36 @@ function requireAdmin(req, res, next) {
    ══════════════════════════════════════════════════════════════ */
 
 async function sendOTPEmail(toEmail, otp, purpose) {
-  const subject = purpose === 'reset'
+  const subject = purpose === 'verify'
+    ? 'Narax — Email Verification Code'
+    : purpose === 'reset'
     ? 'Narax — Password Reset Code'
     : 'Narax — Two-Factor Authentication Code';
 
-  await transporter.sendMail({
-    from: '"Narax" <' + process.env.EMAIL_USER + '>',
-    to: toEmail,
-    subject,
-    html: `
-    <div style="font-family:monospace;background:#0a0a0f;color:#00ffcc;padding:32px;border:1px solid #00ffcc22;border-radius:8px;max-width:480px;margin:auto">
-      <h2 style="color:#00ffcc;letter-spacing:4px;margin-top:0">NARAX SECURITY</h2>
-      <p style="color:#aaa;font-size:13px;letter-spacing:2px">${purpose === 'reset' ? 'PASSWORD RESET' : 'TWO-FACTOR AUTH'}</p>
-      <div style="background:#111;border:1px solid #00ffcc44;border-radius:6px;padding:24px;text-align:center;margin:24px 0">
-        <span style="font-size:36px;letter-spacing:12px;color:#00ffcc;font-weight:bold">${otp}</span>
-      </div>
-      <p style="color:#888;font-size:11px">This code expires in <b style="color:#fff">5 minutes</b>.<br>
-      If you did not request this, ignore this message immediately.</p>
-      <hr style="border-color:#222;margin-top:24px">
-      <p style="color:#555;font-size:10px;margin:0">© Narax Security Terminal — Automated Message</p>
-    </div>`,
+  const label = purpose === 'verify'
+    ? 'EMAIL VERIFICATION'
+    : purpose === 'reset'
+    ? 'PASSWORD RESET'
+    : 'TWO-FACTOR AUTH';
+
+  await mailjet.post('send', { version: 'v3.1' }).request({
+    Messages: [{
+      From: { Email: 'susnarax@gmail.com', Name: 'Narax' },
+      To:   [{ Email: toEmail }],
+      Subject: subject,
+      HTMLPart: `
+      <div style="font-family:monospace;background:#0a0a0f;color:#00ffcc;padding:32px;border:1px solid #00ffcc22;border-radius:8px;max-width:480px;margin:auto">
+        <h2 style="color:#00ffcc;letter-spacing:4px;margin-top:0">NARAX SECURITY</h2>
+        <p style="color:#aaa;font-size:13px;letter-spacing:2px">${label}</p>
+        <div style="background:#111;border:1px solid #00ffcc44;border-radius:6px;padding:24px;text-align:center;margin:24px 0">
+          <span style="font-size:36px;letter-spacing:12px;color:#00ffcc;font-weight:bold">${otp}</span>
+        </div>
+        <p style="color:#888;font-size:11px">This code expires in <b style="color:#fff">5 minutes</b>.<br>
+        If you did not request this, ignore this message immediately.</p>
+        <hr style="border-color:#222;margin-top:24px">
+        <p style="color:#555;font-size:10px;margin:0">© Narax Security Terminal — Automated Message</p>
+      </div>`
+    }]
   });
 }
 
@@ -439,22 +450,68 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, CONFIG.BCRYPT_ROUNDS);
 
-    // Save to MongoDB
+    // Save to MongoDB as unverified
     const newUser = await User.create({
-      userId: userId.toLowerCase(),
-      email:  email.toLowerCase(),
+      userId:     userId.toLowerCase(),
+      email:      email.toLowerCase(),
       passwordHash,
-      role:   'USER',
+      role:       'USER',
+      isVerified: false,
     });
+
+    // Send verification OTP
+    const otp = generateOTP();
+    otpStore[email.toLowerCase()] = {
+      otp,
+      expiresAt: Date.now() + CONFIG.OTP_EXPIRY_MS,
+      purpose: 'verify',
+    };
+    await sendOTPEmail(email.toLowerCase(), otp, 'verify');
 
     return res.status(201).json({
       success: true,
-      message: 'ACCOUNT CREATED — PLEASE LOG IN',
+      message: 'ACCOUNT CREATED — CHECK EMAIL FOR VERIFICATION CODE',
       userId:  newUser.userId,
     });
 
   } catch (err) {
     console.error('[REGISTER ERROR]', err.message);
+    return res.status(500).json({ success: false, message: 'INTERNAL SERVER ERROR' });
+  }
+});
+
+/* ──────────────────────────────────────
+   POST /api/auth/verify-email
+   Body: { email, otp }
+─────────────────────────────────────── */
+app.post('/api/auth/verify-email', otpLimiter, async (req, res) => {
+  try {
+    const email = sanitize(req.body.email || '').toLowerCase();
+    const otp   = sanitize(req.body.otp   || '');
+
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'EMAIL AND OTP REQUIRED' });
+    }
+
+    const record = otpStore[email];
+    if (!record || record.purpose !== 'verify') {
+      return res.status(401).json({ success: false, message: 'NO VERIFICATION CODE ON FILE' });
+    }
+    if (Date.now() > record.expiresAt) {
+      delete otpStore[email];
+      return res.status(401).json({ success: false, message: 'CODE EXPIRED — REGISTER AGAIN' });
+    }
+    if (record.otp !== otp) {
+      return res.status(401).json({ success: false, message: 'INVALID CODE' });
+    }
+
+    delete otpStore[email];
+    await User.updateOne({ email }, { isVerified: true });
+
+    return res.status(200).json({ success: true, message: 'EMAIL VERIFIED — YOU CAN NOW LOGIN' });
+
+  } catch (err) {
+    console.error('[VERIFY-EMAIL ERROR]', err.message);
     return res.status(500).json({ success: false, message: 'INTERNAL SERVER ERROR' });
   }
 });
@@ -480,6 +537,10 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
     if (!user || !match) {
       return res.status(401).json({ success: false, message: 'INVALID CREDENTIALS' });
+    }
+
+    if (!user.isVerified) {
+      return res.status(403).json({ success: false, message: 'EMAIL NOT VERIFIED — CHECK YOUR INBOX' });
     }
 
     // Direct login — no OTP

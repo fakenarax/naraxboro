@@ -52,6 +52,7 @@ const state = {
   inactivityCountdownTimer: null,
   threatSimTimer:           null,
   otpTimerInterval:         null,
+  pendingVerifyEmail:       null,
 };
 
 /* ─────────────────────────────────────
@@ -191,6 +192,11 @@ function otpMove2fa(input, idx) {
   if (input.value && idx < inputs.length - 1) inputs[idx + 1].focus();
   input.value = input.value.replace(/\D/g, '');
 }
+function otpMoveVerify(input, idx) {
+  const inputs = document.querySelectorAll('#otpGridVerify .otp-input');
+  if (input.value && idx < inputs.length - 1) inputs[idx + 1].focus();
+  input.value = input.value.replace(/\D/g, '');
+}
 
 /* ─────────────────────────────────────
    HELPERS: read OTP grids
@@ -274,13 +280,40 @@ async function handleRegister(e) {
       return;
     }
 
-    showToast('ACCOUNT CREATED — PLEASE LOG IN', 'success');
-    setTimeout(() => switchTab('login'), 900);
+    showToast('ACCOUNT CREATED — CHECK EMAIL FOR VERIFICATION CODE', 'success');
+    state.pendingVerifyEmail = email;
+    setTimeout(() => showView('view-verify-email'), 900);
 
   } catch {
     showToast('CONNECTION ERROR — CHECK SERVER', 'error');
   } finally {
     setFormLoading('form-register', false);
+  }
+}
+
+/* ─────────────────────────────────────
+   EMAIL VERIFICATION
+───────────────────────────────────── */
+async function handleVerifyEmail() {
+  const otp = readOtpGrid('otpGridVerify');
+  if (!otp || otp.length !== 6) { showToast('ENTER 6-DIGIT CODE', 'error'); return; }
+
+  showToast('VERIFYING…', 'info');
+
+  try {
+    const { ok, data } = await apiFetch('/api/auth/verify-email', {
+      method: 'POST',
+      body:   JSON.stringify({ email: state.pendingVerifyEmail, otp }),
+    });
+
+    if (!ok) { showToast(data.message || 'VERIFICATION FAILED', 'error'); return; }
+
+    showToast('EMAIL VERIFIED — PLEASE LOG IN', 'success');
+    state.pendingVerifyEmail = null;
+    setTimeout(() => { showView('view-auth'); switchTab('login'); }, 1000);
+
+  } catch {
+    showToast('CONNECTION ERROR', 'error');
   }
 }
 
