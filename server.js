@@ -379,7 +379,7 @@ async function sendResetLinkEmail(toEmail, resetLink) {
       From: { Email: 'susnarax@gmail.com', Name: 'Narax' },
       To:   [{ Email: toEmail }],
       Subject: 'Narax — Access Key Recovery Link',
-      HTMLBody: `
+      HTMLPart: `
       <div style="font-family:monospace;background:#0a0a0f;color:#00e5ff;padding:32px;border:1px solid #00e5ff22;border-radius:8px;max-width:480px;margin:auto">
         <h2 style="color:#00e5ff;letter-spacing:4px;margin-top:0">NARAX SECURITY</h2>
         <p style="color:#aaa;font-size:13px;letter-spacing:2px">PASSWORD RECOVERY</p>
