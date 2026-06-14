@@ -739,7 +739,7 @@ function renderTable() {
         <div class="action-btns">
           ${user.role !== 'ADMIN' ? `<button class="action-btn promote" onclick="promoteUser('${user.id}')">MAKE ADMIN</button>` : ''}
           ${user.role === 'ADMIN' && !isCurrentUser && user.id !== 'narax_admin' ? `<button class="action-btn demote" onclick="demoteUser('${user.id}')">REMOVE ADMIN</button>` : ''}
-          ${!isCurrentUser ? `<button class="action-btn delete" onclick="deleteUser('${user.id}')">DELETE</button>` : ''}
+          ${!isCurrentUser && user.id !== 'narax_admin' ? `<button class="action-btn delete" onclick="deleteUser('${user.id}')">DELETE</button>` : ''}
         </div>
       </td>
     `;
