@@ -154,21 +154,12 @@ const otpStore = {};
    NODEMAILER TRANSPORTER
 ─────────────────────────────────────── */
 
-const nodemailer = require('nodemailer');
-const transporter = nodemailer.createTransport({
-  host:   process.env.EMAIL_HOST,
-  port:   Number(process.env.EMAIL_PORT),
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-transporter.verify((err) => {
-  if (err) console.error('[SMTP] FAILED:', err.message);
-  else     console.log('[SMTP] Ready');
-});
+const Mailjet = require('node-mailjet');
+const mailjet = Mailjet.apiConnect(
+  process.env.MJ_APIKEY_PUBLIC,
+  process.env.MJ_APIKEY_PRIVATE
+);
+console.log('[MAILJET] Client initialized');
 
 /* ──────────────────────────────────────
    MULTER — AVATAR STORAGE
