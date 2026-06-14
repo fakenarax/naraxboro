@@ -195,12 +195,20 @@
     </div>
     <div class="otp-timer">
       <span>CODE EXPIRES IN: </span>
-      <span class="otp-countdown">05:00</span>
+      <span class="otp-countdown" id="verifyEmailCountdown">05:00</span>
     </div>
     <button class="btn-primary" onclick="handleVerifyEmail()">
       <span class="btn-text">VERIFY ACCOUNT</span>
       <span class="btn-glow"></span>
     </button>
+    <div style="text-align:center;margin-top:14px">
+      <button class="link-btn" id="resendOtpBtn" onclick="handleResendOtp()" style="font-size:0.7rem;letter-spacing:0.12em">
+        RESEND CODE
+      </button>
+      <span id="resendCooldownMsg" style="display:none;font-family:var(--font-mono);font-size:0.65rem;color:var(--text-dim);letter-spacing:0.1em">
+        RESEND AVAILABLE IN <span id="resendCooldown">60</span>s
+      </span>
+    </div>
     <div class="auth-footer">
       <span class="watermark">MADE BY NARAX</span>
     </div>

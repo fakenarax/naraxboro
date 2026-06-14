@@ -53,6 +53,7 @@ const state = {
   threatSimTimer:           null,
   otpTimerInterval:         null,
   pendingVerifyEmail:       null,
+  _resendCooldownInterval:  null,
 };
 
 /* ─────────────────────────────────────
@@ -282,7 +283,10 @@ async function handleRegister(e) {
 
     showToast('ACCOUNT CREATED — CHECK EMAIL FOR VERIFICATION CODE', 'success');
     state.pendingVerifyEmail = email;
-    setTimeout(() => showView('view-verify-email'), 900);
+    setTimeout(() => {
+      showView('view-verify-email');
+      startVerifyEmailTimer();
+    }, 900);
 
   } catch {
     showToast('CONNECTION ERROR — CHECK SERVER', 'error');
@@ -465,6 +469,64 @@ function start2FATimer() {
       showToast('OTP EXPIRED — REQUEST NEW CODE', 'error');
     }
   }, 1000);
+}
+
+function startVerifyEmailTimer() {
+  state.otpTimer = 5 * 60;
+  clearInterval(state.otpTimerInterval);
+  const el = document.getElementById('verifyEmailCountdown');
+  if (el) el.textContent = formatTime(state.otpTimer);
+  state.otpTimerInterval = setInterval(() => {
+    state.otpTimer--;
+    const el = document.getElementById('verifyEmailCountdown');
+    if (el) el.textContent = formatTime(state.otpTimer);
+    if (state.otpTimer <= 0) {
+      clearInterval(state.otpTimerInterval);
+      showToast('CODE EXPIRED — CLICK RESEND TO GET A NEW CODE', 'error');
+    }
+  }, 1000);
+  startResendCooldown(60);
+}
+
+function startResendCooldown(seconds) {
+  const btn     = document.getElementById('resendOtpBtn');
+  const msgEl   = document.getElementById('resendCooldownMsg');
+  const countEl = document.getElementById('resendCooldown');
+  if (btn)     btn.style.display   = 'none';
+  if (msgEl)   msgEl.style.display = 'inline';
+  if (countEl) countEl.textContent = seconds;
+  let remaining = seconds;
+  clearInterval(state._resendCooldownInterval);
+  state._resendCooldownInterval = setInterval(() => {
+    remaining--;
+    if (countEl) countEl.textContent = remaining;
+    if (remaining <= 0) {
+      clearInterval(state._resendCooldownInterval);
+      if (btn)   btn.style.display   = 'inline';
+      if (msgEl) msgEl.style.display = 'none';
+    }
+  }, 1000);
+}
+
+async function handleResendOtp() {
+  if (!state.pendingVerifyEmail) {
+    showToast('SESSION LOST — PLEASE REGISTER AGAIN', 'error');
+    showView('view-auth');
+    return;
+  }
+  showToast('TRANSMITTING NEW CODE…', 'info');
+  try {
+    const { ok, data } = await apiFetch('/api/auth/resend-verification', {
+      method: 'POST',
+      body:   JSON.stringify({ email: state.pendingVerifyEmail }),
+    });
+    if (!ok) { showToast(data.message || 'RESEND FAILED — TRY AGAIN', 'error'); return; }
+    showToast('NEW CODE SENT — CHECK YOUR EMAIL', 'success');
+    clearOtpGrid('otpGridVerify');
+    startVerifyEmailTimer();
+  } catch {
+    showToast('CONNECTION ERROR — CHECK SERVER', 'error');
+  }
 }
 
 /* ─────────────────────────────────────
@@ -945,6 +1007,7 @@ function clearAllTimers() {
   clearInterval(state.inactivityCountdownTimer);
   clearInterval(state.threatSimTimer);
   clearInterval(state.otpTimerInterval);
+  clearInterval(state._resendCooldownInterval);
 }
 
 /* ─────────────────────────────────────
