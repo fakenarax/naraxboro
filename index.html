@@ -429,6 +429,20 @@
 <!-- Toast notification -->
 <div class="toast" id="toast"></div>
 
+<!-- Admin Delete User Modal -->
+<div class="modal-overlay" id="adminDeleteModal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">⚠ DELETE USER</div>
+    <div class="modal-msg">You are about to permanently delete:</div>
+    <div class="modal-msg" style="color:var(--cyan);letter-spacing:0.15em" id="adminDeleteUsername"></div>
+    <div class="modal-msg">ARE YOU SURE?</div>
+    <div class="modal-actions">
+      <button class="modal-btn confirm" onclick="confirmAdminDelete()">YES, DELETE</button>
+      <button class="modal-btn cancel" onclick="closeAdminDeleteModal()">NO, CANCEL</button>
+    </div>
+  </div>
+</div>
+
 <!-- Delete Account Modal -->
 <div class="modal-overlay" id="deleteModal" style="display:none">
   <div class="modal-box">

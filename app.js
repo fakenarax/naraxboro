@@ -804,7 +804,28 @@ async function demoteUser(userId) {
 /* ─────────────────────────────────────
    ADMIN: DELETE  →  DELETE /api/admin/users/:id
 ───────────────────────────────────── */
-async function deleteUser(userId) {
+function deleteUser(userId) {
+  state._pendingDeleteUserId = userId;
+  document.getElementById('adminDeleteUsername').textContent = userId.toUpperCase();
+  document.getElementById('adminDeleteModal').style.display = 'flex';
+}
+
+function closeAdminDeleteModal() {
+  const modal = document.getElementById('adminDeleteModal');
+  modal.style.opacity = '0';
+  modal.style.transition = 'opacity 0.2s ease';
+  setTimeout(() => {
+    modal.style.display = 'none';
+    modal.style.opacity = '';
+    modal.style.transition = '';
+    state._pendingDeleteUserId = null;
+  }, 200);
+}
+
+async function confirmAdminDelete() {
+  const userId = state._pendingDeleteUserId;
+  closeAdminDeleteModal();
+  if (!userId) return;
   try {
     const { ok, data } = await apiFetch(`/api/admin/users/${userId}`, {
       method: 'DELETE',
