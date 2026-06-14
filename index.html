@@ -229,6 +229,7 @@
       </div>
       <div class="dash-actions">
         <button class="icon-btn" id="adminPanelBtn" onclick="showView('view-admin')" style="display:none" title="Admin Panel">⬡ ADMIN</button>
+        <button class="icon-btn danger-btn" onclick="confirmDeleteAccount()">DELETE ACCOUNT ✕</button>
         <button class="icon-btn" onclick="handleLogout()">LOGOUT ⏻</button>
       </div>
     </header>
@@ -254,6 +255,10 @@
               <span class="meta-key">OPERATOR</span>
               <span class="meta-val" id="dashUser">—</span>
             </div>
+            <div class="meta-row">
+              <span class="meta-key">EMAIL</span>
+              <span class="meta-val mono" id="dashEmail">—</span>
+            /div>
             <div class="meta-row">
               <span class="meta-key">SESSION ID</span>
               <span class="meta-val mono" id="dashSessionId">—</span>
@@ -369,6 +374,7 @@
       </div>
       <div class="dash-actions">
         <button class="icon-btn" onclick="showView('view-dashboard')">← DASHBOARD</button>
+        <button class="icon-btn danger-btn" onclick="confirmDeleteAccount()">DELETE ACCOUNT ✕</button>
         <button class="icon-btn" onclick="handleLogout()">LOGOUT ⏻</button>
       </div>
     </header>
@@ -422,6 +428,19 @@
 
 <!-- Toast notification -->
 <div class="toast" id="toast"></div>
+
+<!-- Delete Account Modal -->
+<div class="modal-overlay" id="deleteModal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">⚠ DELETE ACCOUNT</div>
+    <div class="modal-msg">This action is permanent and cannot be undone. All data will be erased.</div>
+    <div class="modal-msg">ARE YOU SURE?</div>
+    <div class="modal-actions">
+      <button class="modal-btn confirm" onclick="executeDeleteAccount()">YES, DELETE</button>
+      <button class="modal-btn cancel" onclick="closeDeleteModal()">NO, CANCEL</button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>

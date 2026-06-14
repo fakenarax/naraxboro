@@ -449,6 +449,7 @@ function startSession(info) {
 
   // Populate dashboard fields
   document.getElementById('dashUser').textContent      = info.userId;
+  document.getElementById('dashEmail').textContent     = info.email || state.pendingEmail || '—';
   document.getElementById('dashSessionId').textContent = info.sessionId;
   document.getElementById('dashLoginTime').textContent = state.loginTime.toLocaleTimeString('en-US', { hour12: false });
   document.getElementById('dashAuthMode').textContent  = info.authMode   || (state.isAdmin ? 'ADMIN' : 'USER');
@@ -607,6 +608,38 @@ function showInactivityWarning() {
 
 function resetInactivity() {
   resetInactivityTracking();
+}
+
+function confirmDeleteAccount() {
+  const modal = document.getElementById('deleteModal');
+  modal.style.display = 'flex';
+}
+
+function closeDeleteModal() {
+  const modal = document.getElementById('deleteModal');
+  modal.style.animation = 'none';
+  modal.style.opacity = '0';
+  modal.style.transition = 'opacity 0.2s ease';
+  setTimeout(() => {
+    modal.style.display = 'none';
+    modal.style.opacity = '';
+    modal.style.transition = '';
+  }, 200);
+}
+
+async function executeDeleteAccount() {
+  closeDeleteModal();
+  if (state.token) {
+    apiFetch('/api/auth/delete-account', { method: 'DELETE' }).catch(() => {});
+  }
+  clearAllTimers();
+  state.token = null;
+  state.currentUser = null;
+  state.sessionId = null;
+  state.loginTime = null;
+  state.isAdmin = false;
+  showToast('ACCOUNT DELETED — ACCESS REVOKED', 'error');
+  setTimeout(() => showView('view-auth'), 900);
 }
 
 /* ─────────────────────────────────────
