@@ -519,6 +519,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         clearance: user.role === 'ADMIN' ? 'LEVEL 5 — ALPHA' : 'LEVEL 2 — STANDARD',
         loginTime: loginTime.toISOString(),
         expiresAt: new Date(expiresAt).toISOString(),
+        ip:        req.ip || req.headers['x-forwarded-for'] || 'UNKNOWN',
       },
     });
 

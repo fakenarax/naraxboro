@@ -455,6 +455,7 @@ function startSession(info) {
   document.getElementById('dashAuthMode').textContent  = info.authMode   || (state.isAdmin ? 'ADMIN' : 'USER');
   document.getElementById('dashClearance').textContent = info.clearance  || (state.isAdmin ? 'LEVEL 5 — ALPHA' : 'LEVEL 2 — STANDARD');
   document.getElementById('dashContext').textContent   = state.isAdmin   ? 'ADMIN TERMINAL' : 'USER TERMINAL';
+  document.getElementById('dashIP').textContent = info.ip || 'UNKNOWN';
 
   // Show admin panel button only for admins
   const adminBtn = document.getElementById('adminPanelBtn');
