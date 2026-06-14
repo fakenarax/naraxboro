@@ -771,8 +771,10 @@ async function promoteUser(userId) {
       body:   JSON.stringify({ role: 'ADMIN' }),
     });
     if (ok) {
+      const user = state.users.find(u => u.id === userId);
+      if (user) user.role = 'ADMIN';
+      renderTable();
       showToast(data.message || `${userId} PROMOTED TO ADMIN`, 'success');
-      await fetchAdminUsers();
     } else {
       showToast(data.message || 'OPERATION FAILED', 'error');
     }
@@ -791,8 +793,10 @@ async function demoteUser(userId) {
       body:   JSON.stringify({ role: 'USER' }),
     });
     if (ok) {
+      const user = state.users.find(u => u.id === userId);
+      if (user) user.role = 'USER';
+      renderTable();
       showToast(data.message || `${userId} CLEARANCE REVOKED`, 'info');
-      await fetchAdminUsers();
     } else {
       showToast(data.message || 'OPERATION FAILED', 'error');
     }
