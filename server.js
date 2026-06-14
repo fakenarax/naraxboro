@@ -517,6 +517,33 @@ app.post('/api/auth/verify-email', otpLimiter, async (req, res) => {
 });
 
 /* ──────────────────────────────────────
+   POST /api/auth/resend-verification
+   Body: { email }
+─────────────────────────────────────── */
+app.post('/api/auth/resend-verification', otpLimiter, async (req, res) => {
+  try {
+    const email = sanitize(req.body.email || '').toLowerCase();
+    if (!email) return res.status(400).json({ success: false, message: 'EMAIL REQUIRED' });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ success: false, message: 'EMAIL NOT FOUND' });
+    if (user.isVerified) return res.status(400).json({ success: false, message: 'ALREADY VERIFIED' });
+
+    const otp = generateOTP();
+    otpStore[email] = { otp, expiresAt: Date.now() + CONFIG.OTP_EXPIRY_MS, purpose: 'verify' };
+    await sendOTPEmail(email, otp, 'verify');
+
+    return res.status(200).json({ success: true, message: 'NEW CODE SENT' });
+  } catch (err) {
+    console.error('[RESEND-VERIFY ERROR]', err.message);
+    return res.status(500).json({ success: false, message: 'INTERNAL SERVER ERROR' });
+  }
+});
+
+/* ──────────────────────────────────────
+   POST /api/auth/login
+
+/* ──────────────────────────────────────
    POST /api/auth/login
    Body: { userId, password }
 ─────────────────────────────────────── */
