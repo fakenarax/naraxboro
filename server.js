@@ -520,6 +520,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       sessionInfo: {
         sessionId,
         userId:    user.userId,
+        email:     user.email,
         role:      user.role,
         authMode:  user.role === 'ADMIN' ? 'ADMIN' : 'USER',
         clearance: user.role === 'ADMIN' ? 'LEVEL 5 — ALPHA' : 'LEVEL 2 — STANDARD',
@@ -602,6 +603,7 @@ app.post('/api/auth/verify-otp', authLimiter, async (req, res) => {
       sessionInfo: {
         sessionId,
         userId:     user.userId,
+        email:      user.email,
         role:       user.role,
         authMode:   user.role === 'ADMIN' ? 'ADMIN + 2FA' : 'USER + 2FA',
         clearance:  user.role === 'ADMIN' ? 'LEVEL 5 — ALPHA' : 'LEVEL 2 — STANDARD',
