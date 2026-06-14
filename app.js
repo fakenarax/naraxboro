@@ -629,9 +629,19 @@ function closeDeleteModal() {
 
 async function executeDeleteAccount() {
   closeDeleteModal();
-  if (state.token) {
-    apiFetch('/api/auth/delete-account', { method: 'DELETE' }).catch(() => {});
+  showToast('DELETING ACCOUNT…', 'info');
+
+  try {
+    const { ok, data } = await apiFetch('/api/auth/delete-account', { method: 'DELETE' });
+    if (!ok) {
+      showToast(data.message || 'DELETION FAILED — TRY AGAIN', 'error');
+      return;
+    }
+  } catch {
+    showToast('CONNECTION ERROR — DELETION FAILED', 'error');
+    return;
   }
+
   clearAllTimers();
   state.token = null;
   state.currentUser = null;

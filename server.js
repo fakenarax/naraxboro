@@ -706,6 +706,27 @@ app.post('/api/auth/logout', authenticate, async (req, res) => {
   return res.status(200).json({ success: true, message: 'SESSION TERMINATED' });
 });
 
+/* ─────────────────────────────────────
+   DELETE /api/auth/delete-account
+───────────────────────────────────── */
+app.delete('/api/auth/delete-account', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    if (userId === 'narax_admin') {
+      return res.status(403).json({ success: false, message: 'PRIMARY ADMIN ACCOUNT CANNOT BE DELETED' });
+    }
+
+    delete sessions[req.user.sessionId];
+    await User.deleteOne({ userId: userId.toLowerCase() });
+
+    return res.status(200).json({ success: true, message: 'ACCOUNT DELETED' });
+  } catch (err) {
+    console.error('[DELETE ACCOUNT ERROR]', err.message);
+    return res.status(500).json({ success: false, message: 'INTERNAL SERVER ERROR' });
+  }
+});
+
 /* ──────────────────────────────────────
    GET /api/auth/session
    Validates token & refreshes session TTL
@@ -811,6 +832,11 @@ app.patch('/api/admin/users/:userId/role', authenticate, requireAdmin, async (re
   // Prevent self-demotion
   if (target.userId === req.user.id && role !== 'ADMIN') {
     return res.status(403).json({ success: false, message: 'CANNOT REVOKE YOUR OWN ADMIN CLEARANCE' });
+  }
+
+  // Prevent anyone from demoting the primary admin
+  if (target.userId === 'narax_admin' && role === 'USER') {
+    return res.status(403).json({ success: false, message: 'PRIMARY ADMIN CLEARANCE CANNOT BE REVOKED' });
   }
 
   await User.updateOne({ userId: targetId.toLowerCase() }, { role });
