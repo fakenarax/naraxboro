@@ -955,3 +955,45 @@ input:checked + .slider::before { transform: translateX(22px); background: var(-
   from { transform: translateY(30px); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
 }
+
+/* ── Glitch Effect ── */
+.glitch {
+  position: relative;
+}
+
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.glitch::before {
+  color: var(--purple);
+  animation: glitch-1 3s infinite;
+  clip-path: polygon(0 0, 100% 0, 100% 40%, 0 40%);
+}
+
+.glitch::after {
+  color: var(--cyan);
+  animation: glitch-2 3s infinite;
+  clip-path: polygon(0 60%, 100% 60%, 100% 100%, 0 100%);
+}
+
+@keyframes glitch-1 {
+  0%, 90%, 100% { transform: translate(0); opacity: 0; }
+  92%            { transform: translate(-3px, 1px); opacity: 0.8; }
+  94%            { transform: translate(3px, -1px); opacity: 0.8; }
+  96%            { transform: translate(-2px, 0); opacity: 0.8; }
+  98%            { transform: translate(0); opacity: 0; }
+}
+
+@keyframes glitch-2 {
+  0%, 90%, 100% { transform: translate(0); opacity: 0; }
+  93%            { transform: translate(3px, 1px); opacity: 0.8; }
+  95%            { transform: translate(-3px, -1px); opacity: 0.8; }
+  97%            { transform: translate(2px, 0); opacity: 0.8; }
+  99%            { transform: translate(0); opacity: 0; }
+}
