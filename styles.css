@@ -829,12 +829,53 @@ input:checked + .slider::before { transform: translateX(22px); background: var(-
 
 /* ── Responsive ── */
 @media (max-width: 600px) {
-  .auth-shell { padding: 24px 20px 20px; }
-  .admin-header-row { flex-direction: column; gap: 16px; align-items: flex-start; }
-  .dash-header { padding: 12px 16px; }
-  .dash-grid { padding: 16px; gap: 14px; }
-  .table-wrap { margin: 16px; }
-  .otp-input { width: 40px; height: 48px; }
+  /* Auth shell */
+  .auth-shell { padding: 20px 16px 16px; }
+  .brand-name { font-size: 1.2rem; }
+  .brand-sub { font-size: 0.55rem; }
+
+  /* OTP grid — fit 6 boxes on small screens */
+  .otp-grid { gap: 6px; }
+  .otp-input { width: 42px; height: 50px; font-size: 1.1rem; }
+
+  /* Fix iOS zoom on input focus — must be 16px+ */
+  .field-input { font-size: 16px; }
+
+  /* Dashboard header */
+  .dash-header { padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+  .dash-context { font-size: 0.6rem; }
+  .icon-btn { padding: 6px 10px; font-size: 0.6rem; }
+
+  /* Dashboard grid */
+  .dash-grid { grid-template-columns: 1fr; padding: 12px; gap: 12px; }
+
+  /* Admin panel */
+  .admin-header-row { flex-direction: column; gap: 12px; align-items: flex-start; padding: 14px 14px 0; }
+  .admin-stats { gap: 12px; }
+  .table-wrap { margin: 12px; }
+  .user-table th, .user-table td { padding: 8px 10px; font-size: 0.62rem; }
+
+  /* Toast — full width on mobile */
+  .toast { left: 12px; right: 12px; bottom: 16px; max-width: none; font-size: 0.65rem; }
+
+  /* Profile */
+  .profile-content { flex-direction: column; align-items: center; }
+  .profile-meta { width: 100%; }
+
+  /* Overlay box */
+  .overlay-box { padding: 28px 20px; }
+
+  /* Dash footer */
+  .dash-foot { padding: 10px 14px; flex-direction: column; gap: 6px; text-align: center; }
+}
+
+@media (max-width: 380px) {
+  /* Very small phones (iPhone SE etc) */
+  .otp-input { width: 36px; height: 44px; font-size: 1rem; }
+  .otp-grid { gap: 4px; }
+  .auth-shell { padding: 16px 12px 14px; }
+  .brand-name { font-size: 1rem; letter-spacing: 0.2em; }
+  .btn-primary { font-size: 0.72rem; }
 }
 
 /* Delete button */
