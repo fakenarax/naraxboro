@@ -155,12 +155,9 @@ const otpStore = {};
    NODEMAILER TRANSPORTER
 ─────────────────────────────────────── */
 
-const Mailjet = require('node-mailjet');
-const mailjet = Mailjet.apiConnect(
-  process.env.MJ_APIKEY_PUBLIC,
-  process.env.MJ_APIKEY_PRIVATE
-);
-console.log('[MAILJET] Client initialized');
+const { Resend } = require('resend');
+const resend = new Resend(process.env.RESEND_API_KEY);
+console.log('[RESEND] Client initialized');
 
 /* ──────────────────────────────────────
    MULTER — AVATAR STORAGE
@@ -363,12 +360,11 @@ async function sendOTPEmail(toEmail, otp, purpose) {
     ? 'PASSWORD RESET'
     : 'TWO-FACTOR AUTH';
 
-  await mailjet.post('send', { version: 'v3.1' }).request({
-    Messages: [{
-      From: { Email: process.env.MJ_SENDER_EMAIL, Name: 'Narax Security · No Reply' },
-      To:   [{ Email: toEmail }],
-      Subject: subject,
-      HTMLPart: `
+await resend.emails.send({
+    from: 'Narax Security <noreply@naraxboro.online>',
+    to:   toEmail,
+    subject: subject,
+    html: `
       <div style="font-family:monospace;background:#0a0a0f;color:#00ffcc;padding:32px;border:1px solid #00ffcc22;border-radius:8px;max-width:480px;margin:auto">
         <h2 style="color:#00ffcc;letter-spacing:4px;margin-top:0">NARAX SECURITY</h2>
         <p style="color:#aaa;font-size:13px;letter-spacing:2px">${label}</p>
@@ -380,17 +376,15 @@ async function sendOTPEmail(toEmail, otp, purpose) {
         <hr style="border-color:#222;margin-top:24px">
         <p style="color:#555;font-size:10px;margin:0">© Narax Security Terminal — Automated Message</p>
       </div>`
-    }]
   });
 }
 
 async function sendResetLinkEmail(toEmail, resetLink) {
-  await mailjet.post('send', { version: 'v3.1' }).request({
-    Messages: [{
-      From: { Email: process.env.MJ_SENDER_EMAIL, Name: 'Narax Security · No Reply' },
-      To:   [{ Email: toEmail }],
-      Subject: 'Narax — Access Key Recovery Link',
-      HTMLPart: `
+  await resend.emails.send({
+    from: 'Narax Security <noreply@naraxboro.online>',
+    to:   toEmail,
+    subject: 'Narax — Access Key Recovery Link',
+    html: `
       <div style="font-family:monospace;background:#0a0a0f;color:#00e5ff;padding:32px;border:1px solid #00e5ff22;border-radius:8px;max-width:480px;margin:auto">
         <h2 style="color:#00e5ff;letter-spacing:4px;margin-top:0">NARAX SECURITY</h2>
         <p style="color:#aaa;font-size:13px;letter-spacing:2px">PASSWORD RECOVERY</p>
@@ -402,7 +396,6 @@ async function sendResetLinkEmail(toEmail, resetLink) {
         <hr style="border-color:#222;margin-top:24px">
         <p style="color:#555;font-size:10px;margin:0">© Narax Security Terminal</p>
       </div>`
-    }]
   });
 }
 
