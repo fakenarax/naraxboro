@@ -579,18 +579,6 @@ function startSession(info) {
   if (state.isAdmin) fetchAdminUsers();
 }
 
-app.get('/api/admin/system-status', authenticate, requireAdmin, (req, res) => {
-  res.json({
-    success: true,
-    status: {
-      ssl:        process.env.NODE_ENV === 'production',
-      uptime:     Math.floor(process.uptime()),
-      memUsed:    Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
-      nodeVersion: process.version,
-    }
-  });
-});
-
 /* ─────────────────────────────────────
    AVATAR — persist in localStorage
 ───────────────────────────────────── */
