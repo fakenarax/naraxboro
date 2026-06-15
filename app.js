@@ -561,6 +561,13 @@ function startSession(info) {
   resetInactivityTracking();
   startThreatSimulation();
   showToast(`WELCOME, ${info.userId.toUpperCase()}`, 'success');
+
+  // Reset avatar before loading new user's photo
+  const avatarImg = document.getElementById('avatarImg');
+  const avatarPlaceholder = document.getElementById('avatarPlaceholder');
+  if (avatarImg) { avatarImg.src = ''; avatarImg.style.display = 'none'; }
+  if (avatarPlaceholder) avatarPlaceholder.style.display = 'block';
+
   loadAvatarLocally();
 
   // Load avatar from MongoDB (works across devices)
