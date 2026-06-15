@@ -31,8 +31,10 @@ const app  = express();
 app.set('trust proxy', 1);
 app.use(cors({
   origin: [
-    'https://naraxboro.netlify.app',
-    'http://localhost:3000',
+  'https://naraxboro.netlify.app',
+  'https://naraxboro.online',
+  'https://www.naraxboro.online',
+  'http://localhost:3000',
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'DELETE'],
