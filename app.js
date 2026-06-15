@@ -976,6 +976,17 @@ function handleAvatarUpload(input) {
 /* ─────────────────────────────────────
    TOAST SYSTEM
 ───────────────────────────────────── */
+
+function copyToClipboard(elementId, label) {
+  const text = document.getElementById(elementId)?.textContent?.trim();
+  if (!text || text === '—') return;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast(`${label} COPIED TO CLIPBOARD`, 'success', 1500);
+  }).catch(() => {
+    showToast('COPY FAILED', 'error', 1500);
+  });
+}
+
 let toastTimer = null;
 function showToast(message, type = 'info') {
   const toast = document.getElementById('toast');
