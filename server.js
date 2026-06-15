@@ -153,6 +153,24 @@ const Session = mongoose.model('Session', sessionSchema);
 // otpStore → { [email]: { otp, expiresAt, purpose: 'login'|'reset' } }
 const otpStore = {};
 
+/* ── THREAT LOG ── */
+const threatLog = {
+  bruteForce: 0,
+  sqlInject:  0,
+  xss:        0,
+  ddos:       0,
+  portScan:   0,
+  logs:       [],
+};
+
+function logThreat(type, ip) {
+  if (threatLog[type] !== undefined) threatLog[type]++;
+  const label = { bruteForce:'BRUTE FORCE', sqlInject:'SQL INJECT', xss:'XSS ATTACK', ddos:'DDOS TRAFFIC', portScan:'PORT SCAN' }[type] || type;
+  const entry = `[${new Date().toLocaleTimeString('en-US',{hour12:false})}] BLOCKED: ${label} — SOURCE ${ip}`;
+  threatLog.logs.unshift(entry);
+  if (threatLog.logs.length > 50) threatLog.logs.pop();
+}
+
 /* ──────────────────────────────────────
    NODEMAILER TRANSPORTER
 ─────────────────────────────────────── */
@@ -218,7 +236,10 @@ const authLimiter = rateLimit({
   max:             10,
   standardHeaders: true,
   legacyHeaders:   false,
-  message:         { success: false, message: 'TOO MANY ATTEMPTS — TRY AGAIN IN 15 MINUTES' },
+  handler: (req, res) => {
+    logThreat('bruteForce', req.ip);
+    res.status(429).json({ success: false, message: 'TOO MANY ATTEMPTS — TRY AGAIN IN 15 MINUTES' });
+  },
 });
 
 // OTP / password-reset — 5 requests / 10 min per IP
@@ -236,10 +257,27 @@ const generalLimiter = rateLimit({
   max:             200,
   standardHeaders: true,
   legacyHeaders:   false,
-  message:         { success: false, message: 'RATE LIMIT EXCEEDED' },
+  handler: (req, res) => {
+    logThreat('ddos', req.ip);
+    res.status(429).json({ success: false, message: 'RATE LIMIT EXCEEDED' });
+  },
 });
 
 app.use('/api/', generalLimiter);
+
+/* ── SQL INJECTION + XSS DETECTION ── */
+app.use((req, res, next) => {
+  const payload = JSON.stringify({ ...req.body, ...req.query, ...req.params });
+  if (/(\bSELECT\b|\bDROP\b|\bINSERT\b|\bUNION\b|--|;--|\/\*)/i.test(payload)) {
+    logThreat('sqlInject', req.ip);
+    return res.status(400).json({ success: false, message: 'MALICIOUS INPUT DETECTED' });
+  }
+  if (/<script|javascript:|on\w+\s*=/i.test(payload)) {
+    logThreat('xss', req.ip);
+    return res.status(400).json({ success: false, message: 'XSS ATTEMPT BLOCKED' });
+  }
+  next();
+});
 
 /* ══════════════════════════════════════════════════════════════
    UTILITY FUNCTIONS
@@ -987,9 +1025,33 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+app.get('/api/admin/system-status', authenticate, requireAdmin, (req, res) => {
+  res.json({
+    success: true,
+    status: {
+      ssl:        process.env.NODE_ENV === 'production',
+      uptime:     Math.floor(process.uptime()),
+      memUsed:    Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+      nodeVersion: process.version,
+    }
+  });
+});
+
 /* ──────────────────────────────────────
    GLOBAL ERROR HANDLER
 ─────────────────────────────────────── */
+
+/* ── THREATS API ── */
+app.get('/api/admin/threats', authenticate, requireAdmin, (req, res) => {
+  res.json({ success: true, threats: threatLog });
+});
+
+// 404 catch-all — logs as port scan
+app.use((req, res) => {
+  logThreat('portScan', req.ip);
+  res.status(404).json({ success: false, message: 'ENDPOINT NOT FOUND' });
+});
+
 // Multer errors (file size, type)
 app.use((err, req, res, next) => {
   if (err.code === 'LIMIT_FILE_SIZE') {

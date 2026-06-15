@@ -579,6 +579,18 @@ function startSession(info) {
   if (state.isAdmin) fetchAdminUsers();
 }
 
+app.get('/api/admin/system-status', authenticate, requireAdmin, (req, res) => {
+  res.json({
+    success: true,
+    status: {
+      ssl:        process.env.NODE_ENV === 'production',
+      uptime:     Math.floor(process.uptime()),
+      memUsed:    Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+      nodeVersion: process.version,
+    }
+  });
+});
+
 /* ─────────────────────────────────────
    AVATAR — persist in localStorage
 ───────────────────────────────────── */
@@ -759,29 +771,52 @@ const threatTypes = [
   { key: 'port',  label: 'PORT SCAN',    fillId: 'tf-port',  countId: 'tc-port',  cls: 'purple' },
 ];
 
-function startThreatSimulation() {
+async function startThreatSimulation() {
   clearInterval(state.threatSimTimer);
-  state.threatSimTimer = setInterval(() => {
-    const t   = threatTypes[Math.floor(Math.random() * threatTypes.length)];
-    const inc = Math.floor(Math.random() * 5) + 1;
-    state.threats[t.key] += inc;
+  await loadRealThreats();
+  state.threatSimTimer = setInterval(loadRealThreats, 10000);
+}
 
-    const max = Math.max(...Object.values(state.threats), 1);
-    const total = Object.values(state.threats).reduce((a, b) => a + b, 0);
+async function loadRealThreats() {
+  try {
+    const { ok, data } = await apiFetch('/api/admin/threats');
+    if (!ok || !data.threats) return;
+
+    const t = data.threats;
+    const counts = {
+      brute: t.bruteForce,
+      sql:   t.sqlInject,
+      xss:   t.xss,
+      ddos:  t.ddos,
+      port:  t.portScan,
+    };
+
+    const max   = Math.max(...Object.values(counts), 1);
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
 
     threatTypes.forEach(tt => {
-      const pct  = Math.min((state.threats[tt.key] / max) * 100, 100);
+      const val  = counts[tt.key] || 0;
+      const pct  = Math.min((val / max) * 100, 100);
       const fill = document.getElementById(tt.fillId);
       const cnt  = document.getElementById(tt.countId);
       if (fill) fill.style.width = pct + '%';
-      if (cnt)  cnt.textContent  = state.threats[tt.key] + ' BLOCKED';
+      if (cnt)  cnt.textContent  = val + ' BLOCKED';
     });
 
     const totalEl = document.getElementById('threatsTotal');
     if (totalEl) totalEl.textContent = total;
 
-    addThreatLogEntry(`[${timestamp()}] BLOCKED: ${t.label} — SOURCE 192.168.${rndByte()}.${rndByte()}`);
-  }, 1800 + Math.random() * 2200);
+    const log = document.getElementById('threatLog');
+    if (log && t.logs && t.logs.length) {
+      log.innerHTML = t.logs.map(l =>
+        `<div class="log-entry blocked">${l}</div>`
+      ).join('');
+    }
+
+    state.threats = counts;
+  } catch {
+    // Silently fail — keep showing last known data
+  }
 }
 
 function addThreatLogEntry(msg) {
@@ -826,6 +861,12 @@ function populateAdminTable() {
     fetchAdminUsers();
   }
 }
+
+apiFetch('/api/admin/sessions').then(({ ok, data }) => {
+  if (!ok) return;
+  const el = document.getElementById('statActive');
+  if (el) el.textContent = data.sessions.length;
+}).catch(() => {});
 
 function renderTable() {
   const tbody = document.getElementById('userTableBody');

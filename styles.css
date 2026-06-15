@@ -997,3 +997,20 @@ input:checked + .slider::before { transform: translateX(22px); background: var(-
   97%            { transform: translate(2px, 0); opacity: 0.8; }
   99%            { transform: translate(0); opacity: 0; }
 }
+
+/* in styles.css */
+.brand-sub {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 1px solid var(--cyan);
+  width: 0;
+  animation: typing 2s steps(30) 0.5s forwards, blink 0.7s step-end infinite;
+}
+@keyframes typing { to { width: 100%; } }
+@keyframes blink  { 50% { border-color: transparent; } }
+
+@keyframes flicker {
+  0%,100% { opacity:1; } 92% { opacity:1; } 93% { opacity:0.94; } 94% { opacity:1; }
+}
+.auth-shell { animation: flicker 6s infinite; }
