@@ -74,6 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
       el.textContent = '☀️';
     });
   }
+  const fixedToggle = document.getElementById('themeToggle');
+  if (fixedToggle) fixedToggle.style.display = 'flex';
   document.addEventListener('mousemove', resetInactivityTracking);
   document.addEventListener('keydown',   resetInactivityTracking);
   document.addEventListener('click',     resetInactivityTracking);
@@ -113,6 +115,8 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   state.currentView = id;
+  const fixedToggle = document.getElementById('themeToggle');
+  if (fixedToggle) fixedToggle.style.display = id === 'view-auth' ? 'flex' : 'none';
 }
 
 /* ─────────────────────────────────────
