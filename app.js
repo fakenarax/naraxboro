@@ -62,6 +62,13 @@ const state = {
 document.addEventListener('DOMContentLoaded', () => {
   initParticles();
   resetInactivityTracking();
+  // Apply saved theme on load (default = light)
+  const savedTheme = localStorage.getItem('narax-theme') || 'light';
+  if (savedTheme === 'light') {
+    document.body.classList.add('light-mode');
+    document.getElementById('themeLabel').textContent = 'LIGHT';
+    document.querySelector('.toggle-icon').textContent = '☀️';
+  }
   document.addEventListener('mousemove', resetInactivityTracking);
   document.addEventListener('keydown',   resetInactivityTracking);
   document.addEventListener('click',     resetInactivityTracking);
@@ -1036,6 +1043,24 @@ function clearAllTimers() {
   clearInterval(state.threatSimTimer);
   clearInterval(state.otpTimerInterval);
   clearInterval(state._resendCooldownInterval);
+}
+
+/* ─────────────────────────────────────
+   THEME TOGGLE
+───────────────────────────────────── */
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light-mode');
+  const label   = document.getElementById('themeLabel');
+  const icon    = document.querySelector('.toggle-icon');
+  if (isLight) {
+    label.textContent = 'LIGHT';
+    icon.textContent  = '☀️';
+    localStorage.setItem('narax-theme', 'light');
+  } else {
+    label.textContent = 'DARK';
+    icon.textContent  = '🌙';
+    localStorage.setItem('narax-theme', 'dark');
+  }
 }
 
 /* ─────────────────────────────────────
