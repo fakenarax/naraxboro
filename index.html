@@ -12,7 +12,7 @@
 <body>
 
   <!-- Theme Toggle -->
-<button class="theme-toggle" onclick="toggleTheme()" id="themeToggle">
+<button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
   <span class="toggle-icon">🌙</span>
   <span id="themeLabel">DARK</span>
 </button>
@@ -230,6 +230,10 @@
         <button class="icon-btn" id="adminPanelBtn" onclick="showView('view-admin')" style="display:none" title="Admin Panel">⬡ ADMIN</button>
         <button class="icon-btn danger-btn" onclick="confirmDeleteAccount()">DELETE ACCOUNT ✕</button>
         <button class="icon-btn" onclick="handleLogout()">LOGOUT ⏻</button>
+        <button class="icon-btn theme-toggle-inline" onclick="toggleTheme()">
+          <span class="toggle-icon-inline" id="themeIconDash">🌙</span>
+          <span id="themeLabelDash">DARK</span>
+        </button>
       </div>
     </header>
 
@@ -379,6 +383,10 @@
         <button class="icon-btn" onclick="showView('view-dashboard')">← DASHBOARD</button>
         <button class="icon-btn danger-btn" onclick="confirmDeleteAccount()">DELETE ACCOUNT ✕</button>
         <button class="icon-btn" onclick="handleLogout()">LOGOUT ⏻</button>
+        <button class="icon-btn theme-toggle-inline" onclick="toggleTheme()">
+          <span class="toggle-icon-inline" id="themeIconAdmin">🌙</span>
+          <span id="themeLabelAdmin">DARK</span>
+        </button>
       </div>
     </header>
 
