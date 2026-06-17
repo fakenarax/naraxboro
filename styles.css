@@ -80,6 +80,7 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   cursor: crosshair;
+  transition: background 0.4s ease, color 0.4s ease;
 }
 
 /* ── Background layers ── */
@@ -143,6 +144,7 @@ body {
   position: relative;
   box-shadow: 0 0 60px rgba(0,229,255,0.05), 0 20px 60px rgba(0,0,0,0.5);
   animation: shellIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
 }
 .auth-shell::before {
   content: '';
@@ -1072,4 +1074,12 @@ body {
 }
 body.light-mode .theme-toggle .toggle-icon {
   transform: rotate(180deg);
+}
+
+/* ── Smooth theme transition on all major elements ── */
+.dash-card, .dash-header, .field-wrap,
+.auth-tabs, .btn-primary, .icon-btn,
+.user-table th, .user-table td,
+.table-wrap, .dashboard-shell {
+  transition: background 0.4s ease, border-color 0.4s ease, color 0.4s ease;
 }
