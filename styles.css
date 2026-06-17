@@ -162,46 +162,6 @@ body {
 }
 .tab-indicator.right { transform: translateX(100%); }
 
-/* ── Admin toggle ── */
-.admin-toggle-row {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 20px;
-  padding: 10px 12px;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-.toggle-label {
-  font-family: var(--font-mono); font-size: 0.7rem;
-  letter-spacing: 0.1em; color: var(--text-dim); flex: 1;
-}
-.switch { position: relative; display: inline-block; width: 44px; height: 22px; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider {
-  position: absolute; inset: 0; cursor: pointer;
-  background: var(--bg4); border-radius: 22px;
-  border: 1px solid var(--border-hi);
-  transition: 0.3s;
-}
-.slider::before {
-  content: ''; position: absolute;
-  width: 16px; height: 16px; left: 2px; bottom: 2px;
-  background: var(--text-dim); border-radius: 50%;
-  transition: 0.3s;
-}
-input:checked + .slider { background: var(--purple-dim); border-color: var(--purple); }
-input:checked + .slider::before { transform: translateX(22px); background: var(--purple); box-shadow: 0 0 8px var(--purple); }
-.admin-badge {
-  font-family: var(--font-mono); font-size: 0.6rem;
-  letter-spacing: 0.1em; color: var(--text-dim);
-  padding: 2px 6px; border: 1px solid var(--border);
-  border-radius: 3px; transition: 0.3s;
-}
-.admin-badge.active {
-  color: var(--purple); border-color: var(--purple);
-  text-shadow: 0 0 8px var(--purple);
-}
-
 /* ── Forms ── */
 .auth-form { display: none; flex-direction: column; gap: 16px; }
 .auth-form.active { display: flex; animation: formIn 0.3s ease both; }

@@ -116,23 +116,6 @@ function switchTab(tab) {
 }
 
 /* ─────────────────────────────────────
-   ADMIN TOGGLE
-───────────────────────────────────── */
-function toggleAdminMode() {
-  // This toggle is purely visual — admin access is granted by server role only
-  const toggle = document.getElementById('adminToggle');
-  const badge   = document.getElementById('adminBadge');
-  if (toggle.checked) {
-    badge.textContent = 'ENABLED';
-    badge.classList.add('active');
-    showToast('ADMIN CREDENTIALS REQUIRED — ENTER ADMIN USER ID & PASSWORD', 'info');
-  } else {
-    badge.textContent = 'RESTRICTED';
-    badge.classList.remove('active');
-  }
-}
-
-/* ─────────────────────────────────────
    PASSWORD STRENGTH
 ───────────────────────────────────── */
 function updateStrengthBar(value) {
@@ -622,8 +605,6 @@ async function handleLogout() {
   state.isAdmin     = false;
   state.users       = [];
 
-  document.getElementById('adminToggle').checked = false;
-  toggleAdminMode();
   clearThreatLog();
   clearOtpGrid('otpGrid');
   clearOtpGrid('otpGrid2fa');
