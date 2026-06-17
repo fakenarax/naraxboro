@@ -251,6 +251,7 @@ const otpLimiter = rateLimit({
 });
 
 // General API — 200 requests / 15 min per IP
+const requestCounts = {};
 const generalLimiter = rateLimit({
   windowMs:        15 * 60 * 1000,
   max:             200,
@@ -262,7 +263,50 @@ const generalLimiter = rateLimit({
   },
 });
 
+/* ── DDOS: detect rapid bursts (30 req in 10 sec) ── */
+app.use((req, res, next) => {
+  const ip  = req.ip;
+  const now = Date.now();
+  if (!requestCounts[ip]) requestCounts[ip] = [];
+
+  // Keep only requests in last 10 seconds
+  requestCounts[ip] = requestCounts[ip].filter(t => now - t < 10000);
+  requestCounts[ip].push(now);
+
+  if (requestCounts[ip].length >= 30) {
+    logThreat('ddos', ip);
+    requestCounts[ip] = []; // reset after logging
+    return res.status(429).json({ success: false, message: 'DDOS DETECTED — CONNECTION THROTTLED' });
+  }
+  next();
+});
+
 app.use('/api/', generalLimiter);
+
+/* ── BRUTE FORCE: track repeated 401s ── */
+const failedLogins = {};
+app.use('/api/auth/login', (req, res, next) => {
+  const ip = req.ip;
+  failedLogins[ip] = failedLogins[ip] || { count: 0, first: Date.now() };
+  
+  // Reset window after 15 min
+  if (Date.now() - failedLogins[ip].first > 15 * 60 * 1000) {
+    failedLogins[ip] = { count: 0, first: Date.now() };
+  }
+
+  const originalJson = res.json.bind(res);
+  res.json = function(body) {
+    if (res.statusCode === 401 || (body && body.message === 'INVALID CREDENTIALS')) {
+      failedLogins[ip].count++;
+      if (failedLogins[ip].count >= 3) {
+        logThreat('bruteForce', ip);
+        failedLogins[ip].count = 0; // reset after logging
+      }
+    }
+    return originalJson(body);
+  };
+  next();
+});
 
 /* ── SQL INJECTION + XSS DETECTION ── */
 app.use((req, res, next) => {
