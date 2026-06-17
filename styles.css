@@ -1083,3 +1083,18 @@ body.light-mode .theme-toggle .toggle-icon {
 .table-wrap, .dashboard-shell {
   transition: background 0.4s ease, border-color 0.4s ease, color 0.4s ease;
 }
+
+.btn-extend {
+  margin-top: 1rem;
+  width: 100%;
+  padding: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--cyan);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-extend:hover { background: var(--cyan); color: #000; }

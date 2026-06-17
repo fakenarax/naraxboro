@@ -550,6 +550,16 @@ function startSession(info) {
   document.getElementById('dashClearance').textContent = info.clearance  || (state.isAdmin ? 'LEVEL 5 — ALPHA' : 'LEVEL 2 — STANDARD');
   document.getElementById('dashContext').textContent   = state.isAdmin   ? 'ADMIN TERMINAL' : 'USER TERMINAL';
   document.getElementById('dashIP').textContent = info.ip || 'UNKNOWN';
+if (info.ip && info.ip !== 'UNKNOWN') {
+  fetch(`https://ipapi.co/${info.ip}/json/`)
+    .then(r => r.json())
+    .then(geo => {
+      const el = document.getElementById('dashIP');
+      if (el && geo.country_name) {
+        el.textContent = `${info.ip} (${geo.country_name})`;
+      }
+    }).catch(() => {});
+}
 
   // Show admin panel button only for admins
   const adminBtn = document.getElementById('adminPanelBtn');
@@ -660,6 +670,12 @@ function startSessionTimer() {
       setTimeout(handleLogout, 1500);
     }
   }, 1000);
+}
+
+function extendSession() {
+  state.sessionRemaining = state.sessionDuration;
+  resetInactivityTracking();
+  showToast('SESSION EXTENDED — 30 MINUTES ADDED', 'success');
 }
 
 /* ─────────────────────────────────────
