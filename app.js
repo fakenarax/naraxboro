@@ -559,6 +559,9 @@ function startSession(info) {
   startSessionTimer();
   resetInactivityTracking();
   startThreatSimulation();
+
+// Reset threat counts for fresh session
+apiFetch('/api/admin/threats/reset', { method: 'POST' }).catch(() => {});
   showToast(`WELCOME, ${info.userId.toUpperCase()}`, 'success');
 
   // Reset avatar before loading new user's photo

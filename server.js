@@ -1089,6 +1089,16 @@ app.get('/api/admin/threats', authenticate, requireAdmin, (req, res) => {
   res.json({ success: true, threats: threatLog });
 });
 
+app.post('/api/admin/threats/reset', authenticate, requireAdmin, (req, res) => {
+  threatLog.bruteForce = 0;
+  threatLog.sqlInject  = 0;
+  threatLog.xss        = 0;
+  threatLog.ddos       = 0;
+  threatLog.portScan   = 0;
+  threatLog.logs       = [];
+  res.json({ success: true });
+});
+
 // 404 catch-all — logs as port scan
 app.use((req, res) => {
   logThreat('portScan', req.ip);
