@@ -1118,6 +1118,77 @@ function rndByte() {
 }
 
 /* ─────────────────────────────────────
+   CHANGE ACCESS KEY POPUP
+───────────────────────────────────── */
+function openChangeKeyPopup() {
+  document.getElementById('keyPopupOverlay').classList.remove('hidden');
+  document.getElementById('kpCurrent').value = '';
+  document.getElementById('kpNew').value = '';
+  document.getElementById('kpConfirm').value = '';
+  document.getElementById('kpStrengthFill').style.width = '0%';
+  document.getElementById('kpMatch').textContent = '';
+  ['kpc-len','kpc-upper','kpc-num','kpc-sym'].forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('ok');
+    el.textContent = '⬜ ' + el.textContent.replace('✅ ','').replace('⬜ ','');
+  });
+}
+
+function closeChangeKeyPopup() {
+  document.getElementById('keyPopupOverlay').classList.add('hidden');
+}
+
+function updateKpStrength(val) {
+  const checks = {
+    'kpc-len':   val.length >= 8,
+    'kpc-upper': /[A-Z]/.test(val),
+    'kpc-num':   /[0-9]/.test(val),
+    'kpc-sym':   /[^A-Za-z0-9]/.test(val),
+  };
+  const labels = { 'kpc-len':'8+ CHARS','kpc-upper':'UPPERCASE','kpc-num':'NUMBER','kpc-sym':'SYMBOL' };
+  let passed = 0;
+  for (const [id, ok] of Object.entries(checks)) {
+    const el = document.getElementById(id);
+    el.classList.toggle('ok', ok);
+    el.textContent = (ok ? '✅ ' : '⬜ ') + labels[id];
+    if (ok) passed++;
+  }
+  document.getElementById('kpStrengthFill').style.width = (passed / 4 * 100) + '%';
+  checkKpMatch();
+}
+
+function checkKpMatch() {
+  const nw = document.getElementById('kpNew').value;
+  const cf = document.getElementById('kpConfirm').value;
+  const el = document.getElementById('kpMatch');
+  if (!cf) { el.textContent = ''; return; }
+  el.textContent = nw === cf ? '✅ KEYS MATCH' : '❌ KEYS DO NOT MATCH';
+  el.style.color = nw === cf ? '#00ff88' : '#ff4444';
+}
+
+async function handleChangePassword() {
+  const current = document.getElementById('kpCurrent').value;
+  const newKey  = document.getElementById('kpNew').value;
+  const confirm = document.getElementById('kpConfirm').value;
+  if (!current || !newKey || !confirm) { showToast('ALL FIELDS REQUIRED', 'error'); return; }
+  if (newKey !== confirm) { showToast('KEYS DO NOT MATCH', 'error'); return; }
+  if (newKey.length < 8) { showToast('KEY TOO SHORT', 'error'); return; }
+  try {
+    const { ok, data } = await apiFetch('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword: current, newPassword: newKey })
+    });
+    if (ok) {
+      showToast('ACCESS KEY UPDATED — LOGGING OUT', 'success');
+      closeChangeKeyPopup();
+      setTimeout(() => handleLogout(), 1800);
+    } else {
+      showToast(data.message?.toUpperCase() || 'UPDATE FAILED', 'error');
+    }
+  } catch { showToast('CONNECTION ERROR', 'error'); }
+}
+
+/* ─────────────────────────────────────
    KEYBOARD: OTP BACKSPACE SUPPORT
 ───────────────────────────────────── */
 document.addEventListener('keydown', (e) => {

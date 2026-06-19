@@ -957,6 +957,39 @@ app.post('/api/profile/avatar-base64', authenticate, async (req, res) => {
   return res.status(200).json({ success: true, message: 'OPERATOR PHOTO UPDATED' });
 });
 
+/* ──────────────────────────────────────
+   POST /api/auth/change-password
+   Body: { currentPassword, newPassword }
+─────────────────────────────────────── */
+app.post('/api/auth/change-password', authenticate, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword)
+    return res.status(400).json({ success: false, message: 'ALL FIELDS REQUIRED' });
+
+  if (newPassword.length < 8)
+    return res.status(400).json({ success: false, message: 'KEY TOO SHORT — MINIMUM 8 CHARACTERS' });
+
+  const user = await User.findOne({ userId: req.user.id }).select('+passwordHash');
+  if (!user)
+    return res.status(404).json({ success: false, message: 'USER NOT FOUND' });
+
+  const match = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!match)
+    return res.status(401).json({ success: false, message: 'CURRENT KEY IS INCORRECT' });
+
+  const newHash = await bcrypt.hash(newPassword, CONFIG.BCRYPT_ROUNDS);
+  await User.updateOne({ userId: req.user.id }, { passwordHash: newHash });
+
+  // Kill all sessions for this user so they must re-login
+  for (const [sid, sess] of Object.entries(sessions)) {
+    if (sess.userId === req.user.id) delete sessions[sid];
+  }
+  await Session.deleteMany({ userId: req.user.id });
+
+  return res.status(200).json({ success: true, message: 'ACCESS KEY UPDATED' });
+});
+
 /* ══════════════════════════════════════════════════════════════
    ADMIN ROUTES  (authenticate + requireAdmin)
    ══════════════════════════════════════════════════════════════ */

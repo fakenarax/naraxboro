@@ -241,7 +241,13 @@
 
       <!-- Profile card -->
       <div class="dash-card profile-card">
-        <div class="card-label">OPERATOR PROFILE</div>
+        <div class="card-label">
+          OPERATOR PROFILE
+          <div class="key-icon-wrap">
+            <button class="key-icon-btn" id="keyBtn" onclick="openChangeKeyPopup()">◈</button>
+            <div class="tooltip">CHANGE ACCESS KEY</div>
+          </div>
+      </div>
         <div class="profile-content">
           <div class="avatar-zone" onclick="document.getElementById('avatarUpload').click()">
             <div class="avatar-ring">
@@ -465,6 +471,48 @@
       <button class="modal-btn confirm" onclick="executeDeleteAccount()">YES, DELETE</button>
       <button class="modal-btn cancel" onclick="closeDeleteModal()">NO, CANCEL</button>
     </div>
+  </div>
+</div>
+
+<!-- Change Access Key Popup -->
+<div class="key-popup-overlay hidden" id="keyPopupOverlay">
+  <div class="key-popup">
+    <div class="key-popup-header">
+      <span class="key-popup-title">◈ CHANGE ACCESS KEY</span>
+      <button class="key-popup-close" onclick="closeChangeKeyPopup()">✕</button>
+    </div>
+
+    <span class="kp-label">CURRENT KEY</span>
+    <div class="kp-field">
+      <span class="kp-icon">◈</span>
+      <input type="password" class="kp-input" id="kpCurrent" placeholder="enter current key"/>
+      <button type="button" class="kp-eye" onclick="togglePasswordVisibility('kpCurrent', this)">◉</button>
+    </div>
+
+    <span class="kp-label">NEW KEY</span>
+    <div class="kp-field" id="kpNewWrap">
+      <span class="kp-icon">◈</span>
+      <input type="password" class="kp-input" id="kpNew" placeholder="enter new key" oninput="updateKpStrength(this.value)"/>
+      <button type="button" class="kp-eye" onclick="togglePasswordVisibility('kpNew', this)">◉</button>
+    </div>
+    <div class="kp-strength-bar"><div class="kp-strength-fill" id="kpStrengthFill"></div></div>
+    <div class="kp-checks">
+      <span class="kp-chk" id="kpc-len">⬜ 8+ CHARS</span>
+      <span class="kp-chk" id="kpc-upper">⬜ UPPERCASE</span>
+      <span class="kp-chk" id="kpc-num">⬜ NUMBER</span>
+      <span class="kp-chk" id="kpc-sym">⬜ SYMBOL</span>
+    </div>
+
+    <span class="kp-label">CONFIRM KEY</span>
+    <div class="kp-field" id="kpConfirmWrap">
+      <span class="kp-icon">◈</span>
+      <input type="password" class="kp-input" id="kpConfirm" placeholder="repeat new key" oninput="checkKpMatch()"/>
+      <button type="button" class="kp-eye" onclick="togglePasswordVisibility('kpConfirm', this)">◉</button>
+    </div>
+    <div class="kp-match" id="kpMatch"></div>
+
+    <button class="kp-submit" onclick="handleChangePassword()">⬡ UPDATE ACCESS KEY</button>
+    <div class="kp-hint">ALL OTHER SESSIONS WILL BE LOGGED OUT</div>
   </div>
 </div>
 
