@@ -52,6 +52,7 @@ const state = {
   inactivityCountdownTimer: null,
   threatSimTimer:           null,
   otpTimerInterval:         null,
+  clockTimer:               null,
   pendingVerifyEmail:       null,
   _resendCooldownInterval:  null,
 };
@@ -569,6 +570,7 @@ if (info.ip && info.ip !== 'UNKNOWN') {
   startSessionTimer();
   resetInactivityTracking();
   startThreatSimulation();
+  startLiveClock();
 
 // Reset threat counts for fresh session
 apiFetch('/api/admin/threats/reset', { method: 'POST' }).catch(() => {});
@@ -1069,6 +1071,7 @@ function clearAllTimers() {
   clearInterval(state.inactivityTimer);
   clearInterval(state.inactivityCountdownTimer);
   clearInterval(state.threatSimTimer);
+  clearInterval(state.clockTimer);
   clearInterval(state.otpTimerInterval);
   clearInterval(state._resendCooldownInterval);
 }
@@ -1134,4 +1137,21 @@ document.addEventListener('keydown', (e) => {
       }
     }
   }
+  /* ─────────────────────────────────────
+   LIVE CLOCK
+───────────────────────────────────── */
+function startLiveClock() {
+  clearInterval(state.clockTimer);
+  function tick() {
+    const el = document.getElementById('liveClock');
+    if (!el) return;
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    el.textContent = `${h}:${m}:${s}`;
+  }
+  tick();
+  state.clockTimer = setInterval(tick, 1000);
+}
 });

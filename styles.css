@@ -1084,6 +1084,18 @@ body.light-mode .theme-toggle .toggle-icon {
   transition: background 0.4s ease, border-color 0.4s ease, color 0.4s ease;
 }
 
+/* ── Live Clock ── */
+.live-clock {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: var(--cyan);
+  text-align: center;
+  margin-bottom: 10px;
+  opacity: 0.75;
+  animation: pulse 2s ease-in-out infinite;
+}
+
 .btn-extend {
   margin-top: 1rem;
   width: 100%;
