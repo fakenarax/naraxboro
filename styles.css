@@ -27,6 +27,8 @@
   --radius-lg: 12px;
   --glow-cyan:  0 0 12px var(--cyan-dim), 0 0 30px var(--cyan-dim);
   --glow-purple:0 0 12px var(--purple-dim), 0 0 30px var(--purple-dim);
+  --bg-card:    #0f1525;
+  --input-bg:   #060810;
 }
 
 /* ── LIGHT MODE THEME ── */
@@ -51,6 +53,8 @@ body.light-mode {
   --border-hi: #6888aa;
   --glow-cyan:  0 0 12px #0077aa33, 0 0 30px #0077aa22;
   --glow-purple:0 0 12px #7700cc33, 0 0 30px #7700cc22;
+  --bg-card:    #d0daea;
+  --input-bg:   #e8eef7;
 }
 
 body.light-mode .bg-grid {
