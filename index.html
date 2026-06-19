@@ -26,7 +26,7 @@
 <!-- MATRIX RAIN -->
 <canvas id="matrix-canvas" style="
   position: fixed; inset: 0; z-index: 3;
-  pointer-events: none; opacity: 0.18;
+  pointer-events: none; opacity: 0.22;
 "></canvas>
 
 <!-- ═══════════════════════════════════════════
@@ -545,7 +545,7 @@
                 && !document.body.classList.contains('light-mode')
                 && getComputedStyle(document.body).backgroundColor !== 'rgb(255, 255, 255)';
     return {
-      fade : isDark ? 'rgba(6,8,16,0.18)'    : 'rgba(240,244,255,0.18)',
+      fade : isDark ? 'rgba(6,8,16,0.25)'    : 'rgba(240,244,255,0.25)',
       head : isDark ? '#00ffcc'               : '#0077aa',
       tail : isDark ? 'rgba(0,229,255,0.55)'  : 'rgba(0,100,180,0.45)',
     };
@@ -576,7 +576,7 @@
       if (y * COL_W > canvas.height && Math.random() > 0.975) {
         drops[i] = 0;
       }
-      drops[i] += 0.6;   // ← speed; increase for faster rain
+      drops[i] += 0.3;   // ← speed; increase for faster rain
     });
   }
 
