@@ -1196,10 +1196,15 @@ body.light-mode .theme-toggle .toggle-icon {
 }
 .kp-field {
   display: flex; align-items: center;
-  background: var(--input-bg, var(--bg, #0a0a0f));
-  border: 1px solid var(--border, #1a1a2e);
+  background: var(--bg3);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0 10px; height: 32px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.kp-field:focus-within {
+  border-color: var(--cyan-mid);
+  box-shadow: 0 0 0 2px var(--cyan-dim);
 }
 .kp-icon { font-size: 11px; color: var(--cyan); margin-right: 8px; }
 .kp-input {
