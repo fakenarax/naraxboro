@@ -906,13 +906,19 @@ body {
   animation: fadeIn 0.25s ease;
 }
 .modal-box {
-  background: var(--surface);
+  background: var(--bg2);
   border: 1px solid #ff444466;
   padding: 2rem 2.5rem;
   max-width: 420px;
   width: 90%;
   text-align: center;
   animation: slideUp 0.3s cubic-bezier(0.16,1,0.3,1);
+}
+
+body.light-mode .modal-box {
+  background: var(--bg2);
+  border-color: #cc113366;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.25);
 }
 .modal-title {
   font-size: 1.1rem;
