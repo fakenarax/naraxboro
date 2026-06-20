@@ -539,19 +539,25 @@
     drops = Array.from({ length: cols }, () => Math.random() * -50);
   }
 
+  function isLightMode() {
+    return document.body.classList.contains('light-mode')
+        || document.documentElement.getAttribute('data-theme') === 'light'
+        || getComputedStyle(document.body).backgroundColor === 'rgb(255, 255, 255)';
+  }
+
   function getColors() {
-    // Read current theme
-    const isDark = document.documentElement.getAttribute('data-theme') !== 'light'
-                && !document.body.classList.contains('light-mode')
-                && getComputedStyle(document.body).backgroundColor !== 'rgb(255, 255, 255)';
     return {
-      fade : isDark ? 'rgba(6,8,16,0.08)'    : 'rgba(240,244,255,0.12)',
-      head : isDark ? '#00ffcc'               : '#0077aa',
-      tail : isDark ? 'rgba(0,229,255,0.55)'  : 'rgba(0,100,180,0.45)',
+      fade : 'rgba(6,8,16,0.08)',
+      head : '#00ffcc',
+      tail : 'rgba(0,229,255,0.55)',
     };
   }
 
   function draw() {
+    if (isLightMode()) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
     const { fade, head, tail } = getColors();
 
     ctx.fillStyle = fade;
